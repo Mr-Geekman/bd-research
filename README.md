@@ -1,4 +1,4 @@
-# Bachelor Research
+# Bachelor's Degree Research
 
 ## Development
 
