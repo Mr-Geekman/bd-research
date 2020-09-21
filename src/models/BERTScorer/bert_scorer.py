@@ -18,8 +18,8 @@ class BERTScorer:
             tokenizer: PreTrainedTokenizer,
             device: int = -1
     ):
-        self.device = torch.device("cpu" if device < 0 else f'cuda:{device}')
-        self.model = model.to(device=device)
+        self.device = torch.device('cpu' if device < 0 else f'cuda:{device}')
+        self.model = model.to(device=self.device)
         self.tokenizer = tokenizer
 
     def __call__(self, sentence: str, candidates: List[str],
@@ -64,7 +64,7 @@ class BERTScorer:
 
         # score each candidate
         candidates_scores = {}
-        for candidate, tokenized_candidate in (
+        for candidate, tokenized_candidate in zip(
                 candidates, tokenized_candidates['input_ids']
         ):
             candidates_scores[candidate] = self._score_candidate(
@@ -117,7 +117,8 @@ class BERTScorer:
             model_input = BatchEncoding(input_dict)
             with torch.no_grad():
                 model_output = self.model(**model_input)[0].squeeze(0).cpu()
-                logits = model_output[i, :]
-                probs = logits.softmax(dim=0)
-                scores.append(probs[tokenized_candidate[i]].item())
+                log_probs = torch.nn.functional.log_softmax(
+                    model_output[i, :], dim=0
+                )
+                scores.append(log_probs[tokenized_candidate[i]].item())
         return agg_func(scores)
