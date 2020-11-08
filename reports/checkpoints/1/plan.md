@@ -54,7 +54,8 @@
   * 28 типов ошибок
   * train: 1M токенов
   * test: 30k токенов -- мало  
-  * [Рейтинг](https://paperswithcode.com/sota/grammatical-error-correction-on-conll-2014)
+  * [Рейтинг-1](https://paperswithcode.com/sota/grammatical-error-correction-on-conll-2014)
+  * [Рейтинг-2](http://nlpprogress.com/english/grammatical_error_correction.html)
 * [The TOEFL-Spell Corpus](https://github.com/EducationalTestingService/toefl-spell)
   * spelling correction
   * 883 эссе
@@ -75,7 +76,8 @@
   * valid: 87k токенов
   * test: 86k токенов
   * Разные уровни сложности текстов от beginner до native
-  * [Рейтинг](https://www.paperswithcode.com/sota/grammatical-error-correction-on-bea-2019-test)
+  * [Рейтинг-1](https://www.paperswithcode.com/sota/grammatical-error-correction-on-bea-2019-test)
+  * [Рейтинг-2](http://nlpprogress.com/english/grammatical_error_correction.html)
 
 
 #### Русский язык: 
@@ -88,13 +90,14 @@
 
 ### Существующие решения
 
-#### Noisy channel
+#### Noisy channel, Weighted Damerau–Levenshtein distance, EM
 
 Статьи: 
 * A mathematical theory of communications
 * A Spelling Correction Program Based on a Noisy Channel Model
+* An Improved Error Model for Noisy Channel Spelling Correction
 
-Классический подход, требующий достаточно много данных для обучения.
+Классический подход
 
 #### Обнаружение, поиск кандидатов, отбор
 
@@ -113,7 +116,7 @@
 1. Можем просто искать слова не из словаря. Подход простой, но его можно использовать.
 2. Для генерации ищутся все словарные слова на каком-то алгоритмически заданном расстоянии редактирования от рассматриваемого слова.
 3. Берется множество признаков и ранжируется при помощи, например, модели логистической регрессии:
-    * Расстояние Левенштейна
+    * Расстояние Домерау - Левенштейна
     * Языковая модель
     * Фонетическое расстояние Левештейна
     * Частоты слов
@@ -166,6 +169,10 @@
 * DirectNoise -- добавление шума непосредственно в данные (замена символов, перестановки, удаления)
 * Backtranslation (noisy) -- перевод с языка "без ошибок" на язык "с ошибками" с добавлением шума в вероятноти при генерации
 * Backtranslation (sample) -- перевод с языка "без ошибок" на язык "с ошибками" простым сэмплированием без использования beam-search
+
+Статья: Neural Grammatical Error Correction Systems with Unsupervised Pre-training on Synthetic Data
+
+Эта статья изучает генерацию синтетических данных unsupervised. Они делали ошибки в словах исходя из предложений Aspell и портили сами слова.
 
 #### GECToR (SOTA)
 
