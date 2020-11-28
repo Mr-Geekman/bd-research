@@ -13,4 +13,8 @@ rule data:
         wget http://www.dialog-21.ru/media/3836/corrected_sents.txt -O data/external/spell-ru-eval/train_corrected.txt
         wget http://www.dialog-21.ru/media/3838/test_sample_testset.txt -O data/external/spell-ru-eval/test_source.txt
         wget http://www.dialog-21.ru/media/3835/corr_sample_testset.txt -O data/external/spell-ru-eval/test_corrected.txt
+
+        wget https://github.com/danakt/russian-words/archive/master.zip -P data/external/
+        unzip data/external/master.zip -d data/external
+        mv data/external/russian-words-master data/external/russian-words
         """
