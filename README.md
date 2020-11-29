@@ -1,19 +1,22 @@
 # Bachelor's Degree Research
 
-## Development
+## Разработка
 
-To install dependencies:
+Для установки зависимостей воспользуейтесь командой:
 ```bash
 conda create --name <env> --file requirements.txt
 ```
 
-To create all data folders:
+Для создания директорий с данными и их загрузки:
 ```bash
 snakemake data --cores 1
 ```
-This will create all data folders and download competition data into data/raw.
 
-## Project structure
+На данный момент также требуется установить переменную окружения `DP_PROJECT_PATH`
+в путь до директории данного проекта.
+
+
+## Структура проекта
 
 ------------
 
@@ -45,5 +48,7 @@ This will create all data folders and download competition data into data/raw.
         ├── __init__.py    <- Makes src a Python module
         │
         ├── models         <- Models classes
+        │
+        ├── configs        <- Configurations of pipelines 
         │
         └── utils          <- Useful functions and classes for all project
