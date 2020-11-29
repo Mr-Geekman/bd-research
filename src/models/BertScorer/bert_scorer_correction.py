@@ -7,7 +7,7 @@ from transformers.tokenization_utils import PreTrainedTokenizer, BatchEncoding
 from transformers import BertForMaskedLM
 
 
-class BERTScorer:
+class BertScorerCorrection:
     """
     Class for scoring all candidates for correction by BERT model.
     """
