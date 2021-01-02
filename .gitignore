@@ -99,3 +99,6 @@ catboost_info/
 
 # Snakemake
 .snakemake/
+
+# Kenlm sources
+/src/kenlm/
