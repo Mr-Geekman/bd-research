@@ -1,5 +1,4 @@
 from typing import List, Tuple, Dict, Callable
-from copy import copy
 
 import numpy as np
 import torch
