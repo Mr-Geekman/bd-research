@@ -9,9 +9,7 @@ from transformers import BertForMaskedLM
 
 
 class BertScorerCorrection:
-    """
-    Class for scoring all candidates for correction by BERT model.
-    """
+    """Class for scoring all candidates for correction by BERT model."""
 
     def __init__(
             self,
