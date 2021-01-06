@@ -42,8 +42,17 @@ class IterativeSpellChecker:
             for tokenized_sentence in tokenized_sentences
         ]
 
-        # find correction for each token
+        # find correction for each token and their scores
         candidates = self.candidate_generator(tokenized_sentences)
+
+        # add original tokens to candidates with zero probability
+        for i in range(len(candidates)):
+            for j in range(len(candidates[i])):
+                current_candidates = [
+                    x[1] for x in candidates[i][j]
+                ]
+                if tokenized_sentences[i][j] not in current_candidates:
+                    candidates[i][j].append((0, tokenized_sentences[i][j]))
 
         # list of results
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
@@ -52,26 +61,27 @@ class IterativeSpellChecker:
 
         # start iteration procedure
         for cur_it in range(self.max_it):
+
+            # find indices of current tokens in lists of candidates
+            current_tokens_candidates_indices = []
+            for i in range(len(tokenized_sentences)):
+                sentence_current_tokens_candidates_indices = []
+                for j in range(len(tokenized_sentences[i])):
+                    current_token = tokenized_sentences[i][j]
+                    current_candidates = candidates[i][j]
+                    sentence_current_tokens_candidates_indices.append(
+                        current_candidates.index(current_token)
+                    )
+                current_tokens_candidates_indices.append(
+                    sentence_current_tokens_candidates_indices
+                )
+
             # find the best positions for corrections
             best_positions, positions_candidates = self.position_selector(
                 tokenized_sentences, candidates,
+                current_tokens_candidates_indices,
                 self.num_selected_candidates
             )
-
-            # check, that there are current tokens in positions_candidates
-            # and find their indices
-            current_tokens_candidates_indices = []
-            for i in range(len(best_positions)):
-                current_token = tokenized_sentences[best_positions[i]]
-                if current_token in positions_candidates[i]:
-                    current_tokens_candidates_indices.append(
-                        positions_candidates[i].index(current_token)
-                    )
-                else:
-                    positions_candidates[i].append(current_token)
-                    current_tokens_candidates_indices.append(
-                        len(positions_candidates[i]) - 1
-                    )
 
             # make scoring of candidates
             scoring_results = self.candidate_scorer(
@@ -81,7 +91,9 @@ class IterativeSpellChecker:
 
             # make best corrections
             current_scores = [
-                scoring_results[idx][current_tokens_candidates_indices[idx]]
+                scoring_results[idx][current_tokens_candidates_indices[idx][
+                    best_positions[idx]]
+                ]
                 for idx in range(len(scoring_results))
             ]
             best_scores_with_indices = [

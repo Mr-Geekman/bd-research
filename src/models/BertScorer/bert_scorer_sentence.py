@@ -7,9 +7,7 @@ from transformers import BertForMaskedLM
 
 
 class BertScorerSentence:
-    """
-    Class for scoring all sentences in MLM.
-    """
+    """Class for scoring all sentences in MLM."""
 
     def __init__(
             self,
