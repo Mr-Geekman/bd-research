@@ -37,10 +37,7 @@ class IterativeSpellChecker:
         tokenized_sentences = self.tokenizer(sentences)
 
         # make preprocessing on tokens (e.g. remove punctuation, lowercase)
-        tokenized_sentences = [
-            self.preprocessor(tokenized_sentence)
-            for tokenized_sentence in tokenized_sentences
-        ]
+        tokenized_sentences = self.preprocessor(tokenized_sentences)
 
         # find correction for each token and their scores
         candidates = self.candidate_generator(tokenized_sentences)
