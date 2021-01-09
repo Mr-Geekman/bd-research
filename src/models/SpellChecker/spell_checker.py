@@ -13,8 +13,8 @@ class IterativeSpellChecker:
             tokenizer: Callable,
             detokenizer: Callable,
             preprocessor: Callable,
-            num_selected_candidates: int = 64,
-            max_it: int = 10,
+            num_selected_candidates: int = 16,
+            max_it: int = 5,
     ):
         self.candidate_generator = candidate_generator
         self.position_selector = position_selector
@@ -34,7 +34,9 @@ class IterativeSpellChecker:
         :returns: list of corrected sentences
         """
         # make tokenization
-        tokenized_sentences = self.tokenizer(sentences)
+        tokenized_sentences = [
+            self.tokenizer(sentence) for sentence in sentences
+        ]
 
         # make preprocessing on tokens (e.g. remove punctuation, lowercase)
         tokenized_sentences = self.preprocessor(tokenized_sentences)
@@ -60,23 +62,27 @@ class IterativeSpellChecker:
         for cur_it in range(self.max_it):
 
             # find indices of current tokens in lists of candidates
-            current_tokens_candidates_indices = []
+            current_tokens_candidates_indices_all_positions = []
             for i in range(len(tokenized_sentences)):
                 sentence_current_tokens_candidates_indices = []
                 for j in range(len(tokenized_sentences[i])):
                     current_token = tokenized_sentences[i][j]
-                    current_candidates = candidates[i][j]
+                    current_candidates = [x[1] for x in candidates[i][j]]
                     sentence_current_tokens_candidates_indices.append(
                         current_candidates.index(current_token)
                     )
-                current_tokens_candidates_indices.append(
+                current_tokens_candidates_indices_all_positions.append(
                     sentence_current_tokens_candidates_indices
                 )
 
             # find the best positions for corrections
+            # TODO: think about more flexible finding positions
+            #   e.g. we can somehow track other good positions and use them
+            #   then best_position was unsuccessfully
+            #   used on previous iteration
             best_positions, positions_candidates = self.position_selector(
                 tokenized_sentences, candidates,
-                current_tokens_candidates_indices,
+                current_tokens_candidates_indices_all_positions,
                 self.num_selected_candidates
             )
 
@@ -88,9 +94,7 @@ class IterativeSpellChecker:
 
             # make best corrections
             current_scores = [
-                scoring_results[idx][current_tokens_candidates_indices[idx][
-                    best_positions[idx]]
-                ]
+                scoring_results[idx][0]
                 for idx in range(len(scoring_results))
             ]
             best_scores_with_indices = [
@@ -99,7 +103,8 @@ class IterativeSpellChecker:
             ]
             best_scores = [x[1] for x in best_scores_with_indices]
             best_candidates = [
-                positions_candidates[x[0]] for x in best_scores_with_indices
+                positions_candidates[i][x[0]]
+                for i, x in enumerate(best_scores_with_indices)
             ]
             for i in range(len(tokenized_sentences)):
                 tokenized_sentences[i][best_positions[i]] = best_candidates[i]
@@ -108,12 +113,21 @@ class IterativeSpellChecker:
             criteria_results = self.stopping_criteria(
                 current_scores, best_scores
             )
+            new_tokenized_sentences = []
+            new_indices_processed_sentences = []
             for i in range(len(tokenized_sentences)):
                 if criteria_results[i]:
                     idx = indices_processed_sentences[i]
                     corrected_sentences[idx] = tokenized_sentences[i]
-                    del tokenized_sentences[i]
-                    del indices_processed_sentences[i]
+                else:
+                    new_tokenized_sentences.append(tokenized_sentences[i])
+                    new_indices_processed_sentences.append(i)
+            tokenized_sentences = new_tokenized_sentences
+            indices_processed_sentences = new_indices_processed_sentences
+
+            # if all sentences was processed before reaching max_it
+            if len(tokenized_sentences) == 0:
+                break
 
         # process remain sentences if they aren't finished
         for i in range(len(tokenized_sentences)):
@@ -121,4 +135,6 @@ class IterativeSpellChecker:
             corrected_sentences[idx] = tokenized_sentences[i]
 
         # return current detokenized sentences
-        return self.detokenizer(corrected_sentences)
+        return [
+            self.detokenizer(sentence) for sentence in corrected_sentences
+        ]

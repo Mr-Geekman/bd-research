@@ -22,10 +22,10 @@ class MultiplicativeMarginStoppingCriteria:
         :param new_scores: list of scores for best tokens
             in selected positions in each sentence
 
-        :returns: list of indicators
+        :returns: list of indicators should we stop or not
         """
         results = [
-            new_score/current_score > self.margin_constant
+            new_score/current_score <= self.margin_constant
             for current_score, new_score in zip(current_scores, new_scores)
         ]
         return results
