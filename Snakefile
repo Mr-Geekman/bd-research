@@ -22,8 +22,6 @@ rule data:
 
         # load kenlm model
         mkdir -p models/kenlm
-        wget http://files.deeppavlov.ai/lang_models/ru_wiyalen_no_punkt.arpa.binary.gz -P models/kenlm/
-        gzip -d models/kenlm/ru_wiyalen_no_punkt.arpa.binary.gz
 
         # load rubert model
         wget http://files.deeppavlov.ai/deeppavlov_data/bert/rubert_cased_L-12_H-768_A-12_pt.tar.gz -P models/
