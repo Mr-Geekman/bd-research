@@ -1,0 +1,255 @@
+\documentclass[t]{beamer}  % [t], [c], или [b] --- вертикальное выравнивание на слайдах (верх, центр, низ)
+%\documentclass[handout]{beamer} % Раздаточный материал (на слайдах всё сразу)
+%\documentclass[aspectratio=169]{beamer} % Соотношение сторон
+
+\input{preamble}
+
+\title{Исправление опечаток и грамматических ошибок в русскоязычных текстах при помощи BERT}
+\author{Бунин Дмитрий, группа 792}
+\date{Научный руководитель: Сорокин А. А.}
+
+\begin{document}
+
+\frame[plain]{\titlepage}	% Титульный слайд
+
+\section{Анализ предметной области}
+\subsection{Виды ошибок}
+ 
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\begin{enumerate}
+		\item Грамматические ошибки (grammatical)
+		
+		Нарушение правил грамматики. Например, неправильное образование и употребление форм слова.
+		
+		\item Орфографические ошибки (spelling)
+		
+		Неверное написание слов.
+		
+		\item Опечатки (typo)
+		
+		Ошибки в печатном тексте в результате случайности.
+		
+	\end{enumerate}
+\end{frame}
+
+\subsection{Задачи}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\begin{enumerate}
+		\item GEC -- grammatical error correction
+		\item Spelling correction
+	\end{enumerate}
+\end{frame}
+
+\subsection{Метрики}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\begin{enumerate}
+		\item F-мера
+		
+		Пусть имеется текст из $n$ предложений, тогда обозначим $g_i$ -- множество корректных исправлений предложения $i$, а $e_i$ -- множество наших исправлений. 
+		\begin{gather*}
+			R = \frac{\sum_{i=1}^n |g_i \cap e_i|}{\sum_{i=1}^n |g_i|},
+			\\
+			P = \frac{\sum_{i=1}^n |g_i \cap e_i|}{\sum_{i=1}^n |e_i|}.
+		\end{gather*}
+		\item GLEU
+		
+		Аналог BLEU для машинного перевода.
+	\end{enumerate}
+\end{frame}
+
+\subsection{Датасеты}
+\subsubsection{Английский язык}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection, \insertsubsubsection}
+	\begin{enumerate}
+		\item CoNLL-2014
+			\begin{itemize}
+				\item Статья: \textcite{Ng2013}
+				\item Метрика: $F_{1/2}$
+				\item Train: 1M токенов
+				\item Test: 30k токенов
+			\end{itemize}
+		\item JFLEG
+		\begin{itemize}
+			\item Статья: \textcite{Napoles2017}
+			\item Метрика: GLEU
+			\item All: 1.5k предложений
+		\end{itemize}
+		\item BEA-2019
+		\begin{itemize}
+			\item \href{https://www.cl.cam.ac.uk/research/nl/bea2019st/}{Страница соревнования}
+			\item Метрика: $F_{1/2}$
+			\item Train: 628k токенов
+			\item Validation: 87k токенов
+			\item Test: 86k токенов
+		\end{itemize}
+	\end{enumerate}
+\end{frame}
+
+\subsubsection{Русский язык}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection,  \insertsubsubsection}
+	\begin{enumerate}
+		\item SpellRuEval
+		\begin{itemize}
+			\item Статья: \textcite{Sorokin2016a}
+			\item \href{http://www.dialog-21.ru/en/evaluation/2016/spelling_correction/}{Страница соревнования}
+			\item Validation: 2k предложений
+			\item Test: 2k предложений
+		\end{itemize}
+	\end{enumerate}
+\end{frame}
+
+\subsection{Существующие подходы}
+\begin{frame}[allowframebreaks]
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\begin{enumerate}
+		\item Стандартные решения
+		\begin{itemize}
+			\item GNU Aspell
+			\item Hunspell
+			\item JamSpell
+			\item Яндекс.Спеллер
+			
+		\end{itemize}
+		\item Модель шумного канала
+			\begin{itemize}
+				\item Модель на основе взвешенного расстояния Дамерау -- Левенштейна: \textcite{Kernighan1990}.
+				\item Улучшенная модификация с более сложной моделью ошибок: \textcite{Brill2000}. 
+			\end{itemize}
+		
+		\item Поиск кандидатов, ранжирование
+		
+		Схема была предложена в \textcite{Flor2012}. Решение задачи состоит из этапов:
+		\begin{itemize}
+			\item Поиск кандидатов для исправления ошибки
+			\item Ранжирование кандидатов
+		\end{itemize}
+	
+		\item Трансформеры
+		
+		Задачу можно рассматривать, как машинный перевод. Улучшения подобных моделей:
+		\begin{itemize}
+			\item Копирование исходного текста: \textcite{Zhao2019}.
+			\item Генерация синтетических данных для обучения: \textcite{Kiyono2020}.
+		\end{itemize}
+	
+		\item Sequence labeling
+		
+		При введении определенных классов трансформаций можно рассматривать GEC, как задачу sequence labeling. Модели:
+		\begin{itemize}
+			\item Parallel Iterative Edit Model: \textcite{Awasthi2020}.
+			\item GECToR: \textcite{Omelianchuk2020}.
+		\end{itemize}
+
+	\end{enumerate}
+\end{frame}
+
+\subsection{Результаты}
+\subsubsection{Английский язык}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection, \insertsubsubsection}
+	\begin{table}
+	\begin{center}
+		\small
+		\begin{tabular}{c c |c|c}
+			\hline
+			\textbf{GEC system} & \textbf{Ens.} & \textbf{CoNLL-2014 (test)}  & \textbf{BEA-2019 (test)}  \\
+			\hline
+			Copy Aug. Transformer &  & 59.8  & --  \\
+			PIE &  & 59.7 & -- \\
+			Transformer (synt. data) &  & 61.3 & 64.2  \\
+			GECToR &  & \textbf{65.3} & \textbf{72.4}  \\
+			\hline
+			Copy Transformer & \checkmark & 61.2  & --  \\
+			PIE & \checkmark & 61.2 & -- \\
+			Transformer (synt. data) & \checkmark & 65.0 & 70.2  \\
+			GECToR & \checkmark & \textbf{66.5} & \textbf{73.6}  \\
+			\hline
+		\end{tabular}
+	\end{center}
+	\caption{Сравнение результатов различных моделей для английского языка}
+	\end{table}
+\end{frame}
+
+\subsubsection{Русский язык}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection, \insertsubsubsection}
+		\begin{table}
+		\begin{center}
+			\small
+			\begin{tabular}{c|c|c|c}
+				\hline
+				\textbf{GEC system} & \textbf{Precision}  & \textbf{Recall} & $\boldsymbol{F_1}$  \\
+				\hline
+				Yandex.Speller & \textbf{83.09}  & 59.86 & 69.59  \\
+				JamSpell & 44.57 & 35.69 & 39.64 \\
+				SpellRuEval Baseline & 55.91 & 46.41 & 50.72  \\
+				SpellRuEval Winner & 81.98 & \textbf{69.25} & \textbf{75.07}  \\
+				\hline
+			\end{tabular}
+		\end{center}
+		\caption{Сравнение результатов различных моделей для русского языка}
+	\end{table}
+	
+\end{frame}
+
+\section{Исследование}
+\subsection{Цель работы}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	Исследование применимости модели BERT к задаче исправления опечаток и грамматических ошибок в русскоязычных текстах.
+\end{frame}
+
+\subsection{Архитектура модели}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	
+	Было решено начать с модели, основанной на ранжировании в связи с небольшим количеством данных и хорошими показателями согласно SpellRuEval (см.  \textcite{Sorokin2016}).
+	
+	Поиск кандидатов будет осуществляться на основании расстояния Дамерау -- Левенштейна при помощи префиксного бора. За основу будет взят \href{https://github.com/deepmipt/DeepPavlov/tree/0.12.1/deeppavlov/models/spelling_correction}{spelling-correction модуль} из библиотеки DeepPavlov.
+	
+	Полученные кандидаты будут отранжированны на основе признаков:
+	\begin{enumerate}
+		\item Взвешенное расстояние Дамерау -- Левенштейна (см. \textcite{Brill2000}).
+		\item Вероятность BERT MLM (см. \textcite{Devlin2019}).
+	\end{enumerate}
+
+	Веса для BERT будут взяты из RuBERT.
+	
+\end{frame}
+
+\subsection{План работ}
+\begin{frame}
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\begin{enumerate}
+		\item Создание модели, ранжирующей на основе BERT MLM, ее тестирование на русскоязычных и англоязычных датасетах.
+		\item Введение дополнительных признаков, как в решении-победителе SpellRuEval.
+		\item Дообучение BERT на MLM для датасета.
+		\item Возможно, испытание других языковых моделей (например, GPT).
+	\end{enumerate}
+\end{frame}
+
+\section{Литература}
+\begin{frame}[allowframebreaks]{reference}
+	\frametitle{\insertsection} 
+	\printbibliography
+\end{frame}
+
+
+
+\end{document}
