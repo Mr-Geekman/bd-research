@@ -1,4 +1,6 @@
+import re
 from typing import List, Tuple, Callable
+from string import punctuation
 
 import numpy as np
 import kenlm
@@ -16,17 +18,18 @@ class KenlmPositionSelector:
         self.agg_subtoken_func = agg_subtoken_func
 
     def __call__(
-            self, tokenized_sentences: List[List[str]],
-            candidates: List[List[List[Tuple[float, str]]]],
-            current_tokens_candidates_indices: List[List[int]],
+            self, tokenized_sentences_raw: List[List[str]],
+            candidates_raw: List[List[List[Tuple[float, str]]]],
+            current_tokens_candidates_indices_raw: List[List[int]],
             num_selected_candidates: int,
     ) -> Tuple[List[int], List[List[str]]]:
         """Select best positions for correction and candidates to score.
 
-        :param tokenized_sentences: list of sentences, that are list of tokens
-        :param candidates: list of possible corrections
+        :param tokenized_sentences_raw: list of sentences,
+            that are list of tokens
+        :param candidates_raw: list of possible corrections
             for each position in each sentence
-        :param current_tokens_candidates_indices: list of indices
+        :param current_tokens_candidates_indices_raw: list of indices
             for current tokens in sentences
         :param num_selected_candidates: max number of selected tokens
             for each position in sentence
@@ -35,9 +38,31 @@ class KenlmPositionSelector:
             list of best positions for each sentence,
             selected candidates for each position for each sentence
         """
+        # preprocess sentences
+        tokenized_sentences = []
+        indices_mappings = []
+        for sentence in tokenized_sentences_raw:
+            processed_sentence, indices_mapping = self._preprocess_sentence(
+                sentence
+            )
+            tokenized_sentences.append(processed_sentence)
+            indices_mappings.append(indices_mapping)
+
+        # preprocess candidates
+        candidates = [
+            [candidates_raw[i][idx] for idx in indices_mapping]
+            for i, indices_mapping in enumerate(indices_mappings)
+        ]
+        current_tokens_candidates_indices = [
+            [current_tokens_candidates_indices_raw[i][idx]
+             for idx in indices_mapping]
+            for i, indices_mapping in enumerate(indices_mappings)
+        ]
+
+
+        # process each sentence separately
         best_positions = []
         positions_candidates = []
-        # process each sentence separately
         for num_sent, tokenized_sentence in enumerate(tokenized_sentences):
             sentence_candidates_scores = [
                 [] for _ in range(len(tokenized_sentence))
@@ -168,7 +193,33 @@ class KenlmPositionSelector:
                 ]
             )
 
-        return best_positions, positions_candidates
+        # correct best_positions according to initial_mappings
+        best_positions_adjusted = [
+            indices_mapping[best_position]
+            for best_position, indices_mapping
+            in zip(best_positions, indices_mappings)
+        ]
+        return best_positions_adjusted, positions_candidates
+
+    def _preprocess_sentence(
+            self, tokenized_sentence: List[str]
+    ) -> Tuple[List[str], List[int]]:
+        """Preprocess tokenized sentence and create mapping of indices.
+
+        :param tokenized_sentence: list of tokens
+
+        :returns: processed tokenized sentence,
+            mapping of current indices to initial
+        """
+        # remove punctuation from tokens and make mapping to initial indices
+        processed_sentence = []
+        indices_mapping = []
+        for i, token in enumerate(tokenized_sentence):
+            if not re.fullmatch('[' + punctuation + ']+', token):
+                processed_sentence.append(token)
+                indices_mapping.append(i)
+
+        return processed_sentence, indices_mapping
 
     def _calculate_position_score(
             self, position_left: int, position_right: int,

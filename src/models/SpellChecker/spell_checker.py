@@ -1,4 +1,6 @@
+import re
 from typing import List, Callable
+from string import punctuation
 
 
 class IterativeSpellChecker:
@@ -12,7 +14,6 @@ class IterativeSpellChecker:
             stopping_criteria: Callable,
             tokenizer: Callable,
             detokenizer: Callable,
-            preprocessor: Callable,
             num_selected_candidates: int = 16,
             max_it: int = 5,
     ):
@@ -22,7 +23,6 @@ class IterativeSpellChecker:
         self.stopping_criteria = stopping_criteria
         self.tokenizer = tokenizer
         self.detokenizer = detokenizer
-        self.preprocessor = preprocessor
         self.num_selected_candidates = num_selected_candidates
         self.max_it = max_it
 
@@ -34,24 +34,17 @@ class IterativeSpellChecker:
         :returns: list of corrected sentences
         """
         # make tokenization
-        tokenized_sentences = [
+        tokenized_sentences_start = [
             self.tokenizer(sentence) for sentence in sentences
         ]
-
-        # make preprocessing on tokens (e.g. remove punctuation, lowercase)
-        tokenized_sentences = self.preprocessor(tokenized_sentences)
+        # make lowercase
+        tokenized_sentences = [
+            [x.lower() for x in sentence]
+            for sentence in tokenized_sentences_start
+        ]
 
         # find correction for each token and their scores
         candidates = self.candidate_generator(tokenized_sentences)
-
-        # add original tokens to candidates with zero probability
-        for i in range(len(candidates)):
-            for j in range(len(candidates[i])):
-                current_candidates = [
-                    x[1] for x in candidates[i][j]
-                ]
-                if tokenized_sentences[i][j] not in current_candidates:
-                    candidates[i][j].append((0, tokenized_sentences[i][j]))
 
         # list of results
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
@@ -115,6 +108,7 @@ class IterativeSpellChecker:
             )
             new_tokenized_sentences = []
             new_indices_processed_sentences = []
+            new_candidates = []
             for i in range(len(tokenized_sentences)):
                 if criteria_results[i]:
                     idx = indices_processed_sentences[i]
@@ -122,8 +116,10 @@ class IterativeSpellChecker:
                 else:
                     new_tokenized_sentences.append(tokenized_sentences[i])
                     new_indices_processed_sentences.append(i)
+                    new_candidates.append(candidates[i])
             tokenized_sentences = new_tokenized_sentences
             indices_processed_sentences = new_indices_processed_sentences
+            candidates = new_candidates
 
             # if all sentences was processed before reaching max_it
             if len(tokenized_sentences) == 0:
@@ -133,6 +129,13 @@ class IterativeSpellChecker:
         for i in range(len(tokenized_sentences)):
             idx = indices_processed_sentences[i]
             corrected_sentences[idx] = tokenized_sentences[i]
+
+        # remove punctuation from sentences
+        corrected_sentences = [
+            [x for x in sentence
+             if not re.fullmatch('[' + punctuation + ']+', x)]
+            for sentence in corrected_sentences
+        ]
 
         # return current detokenized sentences
         return [

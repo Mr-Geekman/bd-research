@@ -20,8 +20,9 @@ class BertCandidateScorer:
         self.agg_subtoken_func = agg_subtoken_func
 
     def __call__(
-            self, tokenized_sentences: List[List[str]], positions: List[int],
-            candidates: List[List[str]], detokenizer: Callable
+            self, tokenized_sentences: List[List[str]],
+            positions: List[int], candidates: List[List[str]],
+            detokenizer: Callable
     ) -> List[List[float]]:
         """Make scoring for candidates for every sentence and adjust them.
 
@@ -34,6 +35,7 @@ class BertCandidateScorer:
 
         :returns: score for each candidate for each sentence
         """
+        # TODO: add processing case for candidates
         # add mask tokens to given positions
         masked_tokenized_sentences = []
         for i, pos in enumerate(positions):
@@ -42,8 +44,10 @@ class BertCandidateScorer:
             masked_tokenized_sentences.append(current_sentence)
 
         # detokenize sentences
+        # it is made by join because there is problem with MosesDetokenizer
+        # WordPiece tokenizer can't see [MASK]?
         masked_sentences = [
-            detokenizer(sentence) for sentence in masked_tokenized_sentences
+            ' '.join(sentence) for sentence in masked_tokenized_sentences
         ]
 
         # make scoring

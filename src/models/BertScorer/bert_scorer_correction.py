@@ -39,6 +39,7 @@ class BertScorerCorrection:
             sentences,
             add_special_tokens=True,
             padding=True,
+            max_length=512,
             truncation='longest_first',
         )
         # check, that there is one mask in each sentence
