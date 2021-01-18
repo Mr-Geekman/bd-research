@@ -14,7 +14,7 @@ class BertCandidateScorer:
     def __init__(
             self,
             bert_scorer_model: BertScorerCorrection,
-            agg_subtoken_func: Callable = np.sum
+            agg_subtoken_func: Callable = np.mean
     ):
         self.bert_scorer_model = bert_scorer_model
         self.agg_subtoken_func = agg_subtoken_func
@@ -35,7 +35,6 @@ class BertCandidateScorer:
 
         :returns: score for each candidate for each sentence
         """
-        # TODO: add processing case for candidates
         # add mask tokens to given positions
         masked_tokenized_sentences = []
         for i, pos in enumerate(positions):

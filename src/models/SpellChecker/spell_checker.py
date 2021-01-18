@@ -49,7 +49,7 @@ class IterativeSpellChecker:
         # list of results
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
         # indices of processed sentences
-        indices_processed_sentences = list(range(len(tokenized_sentences)))
+        indices_processing_sentences = list(range(len(tokenized_sentences)))
 
         # start iteration procedure
         for cur_it in range(self.max_it):
@@ -107,18 +107,18 @@ class IterativeSpellChecker:
                 current_scores, best_scores
             )
             new_tokenized_sentences = []
-            new_indices_processed_sentences = []
+            new_indices_processing_sentences = []
             new_candidates = []
             for i in range(len(tokenized_sentences)):
+                idx = indices_processing_sentences[i]
                 if criteria_results[i]:
-                    idx = indices_processed_sentences[i]
                     corrected_sentences[idx] = tokenized_sentences[i]
                 else:
                     new_tokenized_sentences.append(tokenized_sentences[i])
-                    new_indices_processed_sentences.append(i)
+                    new_indices_processing_sentences.append(idx)
                     new_candidates.append(candidates[i])
             tokenized_sentences = new_tokenized_sentences
-            indices_processed_sentences = new_indices_processed_sentences
+            indices_processing_sentences = new_indices_processing_sentences
             candidates = new_candidates
 
             # if all sentences was processed before reaching max_it
@@ -127,7 +127,7 @@ class IterativeSpellChecker:
 
         # process remain sentences if they aren't finished
         for i in range(len(tokenized_sentences)):
-            idx = indices_processed_sentences[i]
+            idx = indices_processing_sentences[i]
             corrected_sentences[idx] = tokenized_sentences[i]
 
         # remove punctuation from sentences
