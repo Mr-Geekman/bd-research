@@ -1,5 +1,5 @@
 from .levenshtein_candidate_generator import LevenshteinCandidateGenerator
 from .kenlm_position_selector import KenlmPositionSelector
 from .bert_candidate_scorer import BertCandidateScorer
-from .margin_stopping_criteria import MultiplicativeMarginStoppingCriteria
+from .factor_stopping_criteria import FactorStoppingCriteria
 from .spell_checker import IterativeSpellChecker

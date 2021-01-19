@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Optional, Callable
 from string import punctuation
 
 import numpy as np
@@ -22,7 +22,8 @@ class KenlmPositionSelector:
             candidates_raw: List[List[List[Tuple[float, str]]]],
             current_tokens_candidates_indices_raw: List[List[int]],
             num_selected_candidates: int,
-    ) -> Tuple[List[int], List[List[str]]]:
+            positions_black_list: List[List[int]] = None
+    ) -> Tuple[List[Optional[int]], List[Optional[float]], List[List[str]]]:
         """Select best positions for correction and candidates to score.
 
         :param tokenized_sentences_raw: list of sentences,
@@ -33,11 +34,20 @@ class KenlmPositionSelector:
             for current tokens in sentences
         :param num_selected_candidates: max number of selected tokens
             for each position in sentence
+        :param positions_black_list: black list of positions for each sentence
 
         :returns:
-            list of best positions for each sentence,
+            list of best positions for each sentence
+                (or None if all positions are unavailable)
+            list of best positions scores
+                (or None if all positions are unavailable)
             selected candidates for each position for each sentence
         """
+        if positions_black_list is None:
+            positions_black_list = [
+                [] for _ in range(len(tokenized_sentences_raw))
+            ]
+
         # preprocess sentences
         tokenized_sentences = []
         indices_mappings = []
@@ -62,6 +72,7 @@ class KenlmPositionSelector:
 
         # process each sentence separately
         best_positions = []
+        positions_scores = []
         positions_candidates = []
         for num_sent, tokenized_sentence in enumerate(tokenized_sentences):
             sentence_candidates_scores = [
@@ -167,10 +178,22 @@ class KenlmPositionSelector:
             max_positions_factors = [
                 max(factors) for factors in sentence_candidates_scores_factors
             ]
-            best_position = max(
-                enumerate(max_positions_factors), key=lambda x: x[1]
-            )[0]
-            best_positions.append(best_position)
+            positions_with_scores = sorted(
+                enumerate(max_positions_factors), key=lambda x: x[1],
+                reverse=True
+            )
+
+            # skip black list with positions (if possible)
+            best_position_score = (None, None)
+            for position_with_score in positions_with_scores:
+                if position_with_score[0] not in positions_black_list[num_sent]:
+                    best_position_score = position_with_score
+                    break
+            best_position = best_position_score[0]
+            best_positions.append(best_position_score[0])
+            positions_scores.append(best_position_score[1])
+            if best_position is None:
+                continue
 
             # select candidates for best position according
             # to calculated factor (current token is always at position 0)
@@ -194,12 +217,14 @@ class KenlmPositionSelector:
             )
 
         # correct best_positions according to initial_mappings
-        best_positions_adjusted = [
-            indices_mapping[best_position]
-            for best_position, indices_mapping
-            in zip(best_positions, indices_mappings)
-        ]
-        return best_positions_adjusted, positions_candidates
+        best_positions_adjusted = []
+        for best_position, indices_mapping in zip(best_positions,
+                                                  indices_mappings):
+            if best_position is None:
+                best_positions_adjusted.append(None)
+            else:
+                best_positions_adjusted.append(indices_mapping[best_position])
+        return best_positions_adjusted, positions_scores, positions_candidates
 
     def _preprocess_sentence(
             self, tokenized_sentence: List[str]

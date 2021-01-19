@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 
 class FactorStoppingCriteria:
@@ -13,7 +13,8 @@ class FactorStoppingCriteria:
         self.margin_constant = margin_constant
 
     def __call__(
-            self, current_scores: List[float], new_scores: List[float]
+            self, current_scores: List[float],
+            new_scores: List[Optional[float]]
     ) -> List[bool]:
         """Check for each sentence criteria of continuation of correction.
 
@@ -25,7 +26,8 @@ class FactorStoppingCriteria:
         :returns: list of indicators should we stop or not
         """
         results = [
-            new_score/current_score <= self.margin_constant
+            new_score is None
+            or (new_score/current_score <= self.margin_constant)
             for current_score, new_score in zip(current_scores, new_scores)
         ]
         return results

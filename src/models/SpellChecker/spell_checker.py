@@ -1,6 +1,25 @@
 import re
-from typing import List, Callable
+from typing import List, Callable, Any
 from string import punctuation
+
+
+def bool_anti_index(
+        bool_list: List[bool],
+        list_to_process: List[Any],
+) -> List[Any]:
+    """Indexing of list according to criteria results.
+        Pass the element to new list iff result is False
+
+    :param bool_list: list of bool values
+    :param list_to_process: list to process
+
+    :returns: processed list
+    """
+    processed_list = [
+        list_to_process[i]
+        for i, res in enumerate(bool_list) if not res
+    ]
+    return processed_list
 
 
 class IterativeSpellChecker:
@@ -11,7 +30,8 @@ class IterativeSpellChecker:
             candidate_generator: Callable,
             position_selector: Callable,
             candidate_scorer: Callable,
-            stopping_criteria: Callable,
+            position_stopping_criteria: Callable,
+            scorer_stopping_criteria: Callable,
             tokenizer: Callable,
             detokenizer: Callable,
             num_selected_candidates: int = 16,
@@ -20,7 +40,8 @@ class IterativeSpellChecker:
         self.candidate_generator = candidate_generator
         self.position_selector = position_selector
         self.candidate_scorer = candidate_scorer
-        self.stopping_criteria = stopping_criteria
+        self.position_stopping_criteria = position_stopping_criteria
+        self.scorer_stopping_criteria = scorer_stopping_criteria
         self.tokenizer = tokenizer
         self.detokenizer = detokenizer
         self.num_selected_candidates = num_selected_candidates
@@ -39,7 +60,7 @@ class IterativeSpellChecker:
         ]
         # make lowercase
         tokenized_sentences = [
-            [x.lower() for x in sentence]
+            [x.lower().replace('ё', 'е') for x in sentence]
             for sentence in tokenized_sentences_start
         ]
 
@@ -73,11 +94,36 @@ class IterativeSpellChecker:
             #   e.g. we can somehow track other good positions and use them
             #   then best_position was unsuccessfully
             #   used on previous iteration
-            best_positions, positions_candidates = self.position_selector(
+            position_selector_results = self.position_selector(
                 tokenized_sentences, candidates,
                 current_tokens_candidates_indices_all_positions,
                 self.num_selected_candidates
             )
+            best_positions = position_selector_results[0]
+            positions_scores = position_selector_results[1]
+            positions_candidates = position_selector_results[2]
+
+            # check stopping criteria for position selector
+            # and finish some sentences
+            criteria_results = self.position_stopping_criteria(
+                [1.0]*len(positions_scores), positions_scores
+            )
+            self._finish_sentences(
+                criteria_results, tokenized_sentences,
+                indices_processing_sentences, corrected_sentences
+            )
+            indices_processing_sentences = bool_anti_index(
+                criteria_results, indices_processing_sentences
+            )
+            tokenized_sentences = bool_anti_index(criteria_results,
+                                                  tokenized_sentences)
+            candidates = bool_anti_index(criteria_results, candidates)
+            best_positions = bool_anti_index(criteria_results, best_positions)
+            positions_candidates = bool_anti_index(criteria_results,
+                                                   positions_candidates)
+            # if all sentences was processed before reaching max_it
+            if len(tokenized_sentences) == 0:
+                break
 
             # make scoring of candidates
             scoring_results = self.candidate_scorer(
@@ -102,25 +148,21 @@ class IterativeSpellChecker:
             for i in range(len(tokenized_sentences)):
                 tokenized_sentences[i][best_positions[i]] = best_candidates[i]
 
-            # check stopping criteria and finish some sentences
-            criteria_results = self.stopping_criteria(
+            # check stopping criteria for candidate scorer
+            # and finish some sentences
+            criteria_results = self.scorer_stopping_criteria(
                 current_scores, best_scores
             )
-            new_tokenized_sentences = []
-            new_indices_processing_sentences = []
-            new_candidates = []
-            for i in range(len(tokenized_sentences)):
-                idx = indices_processing_sentences[i]
-                if criteria_results[i]:
-                    corrected_sentences[idx] = tokenized_sentences[i]
-                else:
-                    new_tokenized_sentences.append(tokenized_sentences[i])
-                    new_indices_processing_sentences.append(idx)
-                    new_candidates.append(candidates[i])
-            tokenized_sentences = new_tokenized_sentences
-            indices_processing_sentences = new_indices_processing_sentences
-            candidates = new_candidates
-
+            self._finish_sentences(
+                criteria_results, tokenized_sentences,
+                indices_processing_sentences, corrected_sentences
+            )
+            indices_processing_sentences = bool_anti_index(
+                criteria_results, indices_processing_sentences
+            )
+            candidates = bool_anti_index(criteria_results, candidates)
+            tokenized_sentences = bool_anti_index(criteria_results,
+                                                  tokenized_sentences)
             # if all sentences was processed before reaching max_it
             if len(tokenized_sentences) == 0:
                 break
@@ -141,3 +183,23 @@ class IterativeSpellChecker:
         return [
             self.detokenizer(sentence) for sentence in corrected_sentences
         ]
+
+    def _finish_sentences(
+            self, criteria_results: List[bool],
+            tokenized_sentences: List[List[str]],
+            indices_processing_sentences: List[int],
+            corrected_sentences: List[List[str]]
+    ) -> None:
+        """Finish sentences according to result of stopping criteria.
+
+        :param criteria_results: results of stopping criteria
+        :param tokenized_sentences: list of tokenized sentences
+        :param indices_processing_sentences: indices  of current
+            processing sentences in initial list of processing sentences
+        :param corrected_sentences: finished tokenized sentences
+            (it is updated in this method)
+        """
+        for i in range(len(tokenized_sentences)):
+            idx = indices_processing_sentences[i]
+            if criteria_results[i]:
+                corrected_sentences[idx] = tokenized_sentences[i]
