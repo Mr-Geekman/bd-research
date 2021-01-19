@@ -1,9 +1,9 @@
 from typing import List
 
 
-class MultiplicativeMarginStoppingCriteria:
+class FactorStoppingCriteria:
     """Stopping criteria according to multiplicative margin between
-    previous results and old results.
+    current results and previous results.
     """
 
     def __init__(
