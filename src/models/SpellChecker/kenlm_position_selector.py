@@ -39,7 +39,7 @@ class KenlmPositionSelector:
         :returns:
             list of best positions for each sentence
                 (or None if all positions are unavailable)
-            list of best positions scores
+            list of scores for best positions
                 (or None if all positions are unavailable)
             selected candidates for each position for each sentence
         """
@@ -68,7 +68,6 @@ class KenlmPositionSelector:
              for idx in indices_mapping]
             for i, indices_mapping in enumerate(indices_mappings)
         ]
-
 
         # process each sentence separately
         best_positions = []
