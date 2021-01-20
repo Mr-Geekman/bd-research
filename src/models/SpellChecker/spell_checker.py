@@ -76,6 +76,7 @@ class IterativeSpellChecker:
         for cur_it in range(self.max_it):
 
             # find indices of current tokens in lists of candidates
+            # TODO: to avoid this
             current_tokens_candidates_indices_all_positions = []
             for i in range(len(tokenized_sentences)):
                 sentence_current_tokens_candidates_indices = []
@@ -106,7 +107,7 @@ class IterativeSpellChecker:
             # check stopping criteria for position selector
             # and finish some sentences
             criteria_results = self.position_stopping_criteria(
-                [1.0]*len(positions_scores), positions_scores
+                positions_scores[0], positions_scores[1]
             )
             self._finish_sentences(
                 criteria_results, tokenized_sentences,
@@ -126,32 +127,19 @@ class IterativeSpellChecker:
                 break
 
             # make scoring of candidates
-            scoring_results = self.candidate_scorer(
+            best_candidates, candidate_scores = self.candidate_scorer(
                 tokenized_sentences, best_positions,
-                positions_candidates, self.detokenizer
+                positions_candidates
             )
 
             # make best corrections
-            current_scores = [
-                scoring_results[idx][0]
-                for idx in range(len(scoring_results))
-            ]
-            best_scores_with_indices = [
-                max(enumerate(sentence_scoring_results), key=lambda x: x[1])
-                for sentence_scoring_results in scoring_results
-            ]
-            best_scores = [x[1] for x in best_scores_with_indices]
-            best_candidates = [
-                positions_candidates[i][x[0]]
-                for i, x in enumerate(best_scores_with_indices)
-            ]
             for i in range(len(tokenized_sentences)):
                 tokenized_sentences[i][best_positions[i]] = best_candidates[i]
 
             # check stopping criteria for candidate scorer
             # and finish some sentences
             criteria_results = self.scorer_stopping_criteria(
-                current_scores, best_scores
+                candidate_scores[0], candidate_scores[1]
             )
             self._finish_sentences(
                 criteria_results, tokenized_sentences,

@@ -1,16 +1,16 @@
 from typing import List, Optional
 
 
-class FactorStoppingCriteria:
-    """Stopping criteria according to factor between
+class MarginStoppingCriteria:
+    """Stopping criteria according to margin between
     current results and previous results.
     """
 
     def __init__(
             self,
-            factor_constant,
+            margin_constant,
     ):
-        self.factor_constant = factor_constant
+        self.margin_constant = margin_constant
 
     def __call__(
             self, current_scores: List[float],
@@ -27,7 +27,7 @@ class FactorStoppingCriteria:
         """
         results = [
             new_score is None
-            or (new_score/current_score <= self.factor_constant)
+            or (new_score - current_score <= self.margin_constant)
             for current_score, new_score in zip(current_scores, new_scores)
         ]
         return results

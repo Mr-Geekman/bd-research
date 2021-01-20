@@ -23,7 +23,9 @@ class KenlmPositionSelector:
             current_tokens_candidates_indices_raw: List[List[int]],
             num_selected_candidates: int,
             positions_black_list: List[List[int]] = None
-    ) -> Tuple[List[Optional[int]], List[Optional[float]], List[List[str]]]:
+    ) -> Tuple[List[Optional[int]],
+               Tuple[List[Optional[float]], List[Optional[float]]],
+               List[List[str]]]:
         """Select best positions for correction and candidates to score.
 
         :param tokenized_sentences_raw: list of sentences,
@@ -39,7 +41,8 @@ class KenlmPositionSelector:
         :returns:
             list of best positions for each sentence
                 (or None if all positions are unavailable)
-            list of scores for best positions
+            (list of current scores for best positions,
+            list of best predicted scores for best positions)
                 (or None if all positions are unavailable)
             selected candidates for each position for each sentence
         """
@@ -71,8 +74,11 @@ class KenlmPositionSelector:
 
         # process each sentence separately
         best_positions = []
-        positions_scores = []
         positions_candidates = []
+        # current scores for best positions
+        positions_scores_cur = []
+        # predicted best scores for best positions
+        positions_scores_pred = []
         for num_sent, tokenized_sentence in enumerate(tokenized_sentences):
             sentence_candidates_scores = [
                 [] for _ in range(len(tokenized_sentence))
@@ -157,48 +163,49 @@ class KenlmPositionSelector:
                 for pos, scores in enumerate(sentence_candidates_scores)
             ]
 
-            # compare score to the score of current token
-            sentence_candidates_scores_factors = []
+            # add to the score score of current token
+            sentence_candidates_scores_pairs = []
             for pos, scores in enumerate(sentence_candidates_agg_scores):
-                sentence_position_candidates_scores_factors = []
+                sentence_position_candidates_scores_pairs = []
                 for j, score in enumerate(scores):
-                    sentence_position_candidates_scores_factors.append(
-                        score
-                        /
+                    sentence_position_candidates_scores_pairs.append((
+                        score,
                         scores[
                             current_tokens_candidates_indices[num_sent][pos]
                         ]
-                    )
-                sentence_candidates_scores_factors.append(
-                    sentence_position_candidates_scores_factors
+                    ))
+                sentence_candidates_scores_pairs.append(
+                    sentence_position_candidates_scores_pairs
                 )
 
             # select best position
-            max_positions_factors = [
-                max(factors) for factors in sentence_candidates_scores_factors
+            max_positions_scores = [
+                max(pairs, key=lambda x: x[0]/x[1])
+                for pairs in sentence_candidates_scores_pairs
             ]
             positions_with_scores = sorted(
-                enumerate(max_positions_factors), key=lambda x: x[1],
+                enumerate(max_positions_scores), key=lambda x: x[1][0]/x[1][1],
                 reverse=True
             )
 
             # skip black list with positions (if possible)
-            best_position_score = (None, None)
+            best_position_score = (None, (None, None))
             for position_with_score in positions_with_scores:
                 if position_with_score[0] not in positions_black_list[num_sent]:
                     best_position_score = position_with_score
                     break
             best_position = best_position_score[0]
             best_positions.append(best_position_score[0])
-            positions_scores.append(best_position_score[1])
+            positions_scores_cur.append(best_position_score[1][1])
+            positions_scores_pred.append(best_position_score[1][0])
             if best_position is None:
                 continue
 
             # select candidates for best position according
-            # to calculated factor (current token is always at position 0)
+            # to calculated score (current token will be always at position 0)
             sort_value_indices = sorted(
-                enumerate(sentence_candidates_scores_factors[best_position]),
-                key=lambda x: x[1], reverse=True
+                enumerate(sentence_candidates_scores_pairs[best_position]),
+                key=lambda x: x[1][0]/x[1][1], reverse=True
             )
             sort_indices = [x[0] for x in sort_value_indices]
             current_token_idx = sort_indices.index(
@@ -223,7 +230,11 @@ class KenlmPositionSelector:
                 best_positions_adjusted.append(None)
             else:
                 best_positions_adjusted.append(indices_mapping[best_position])
-        return best_positions_adjusted, positions_scores, positions_candidates
+        return (
+            best_positions_adjusted,
+            (positions_scores_cur, positions_scores_pred),
+            positions_candidates
+        )
 
     def _preprocess_sentence(
             self, tokenized_sentence: List[str]

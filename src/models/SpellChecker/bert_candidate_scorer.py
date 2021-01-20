@@ -1,4 +1,4 @@
-from typing import List, Callable
+from typing import List, Tuple, Callable
 from copy import copy
 
 import numpy as np
@@ -21,19 +21,19 @@ class BertCandidateScorer:
 
     def __call__(
             self, tokenized_sentences: List[List[str]],
-            positions: List[int], candidates: List[List[str]],
-            detokenizer: Callable
-    ) -> List[List[float]]:
+            positions: List[int], candidates: List[List[str]]
+    ) -> Tuple[List[str], Tuple[List[float], List[float]]]:
         """Make scoring for candidates for every sentence and adjust them.
 
         :param tokenized_sentences: list of tokenized sentences
         :param positions: positions for candidates scoring for each sentence
         :param candidates: candidates for given positions
             in each sentence
-        :param detokenizer: object to make sentence
-            string from tokenized sentence
 
-        :returns: score for each candidate for each sentence
+        :returns:
+            best candidates for each position
+            (list of current scores for each sentence,
+            list of best scores for each sentence)
         """
         # add mask tokens to given positions
         masked_tokenized_sentences = []
@@ -44,22 +44,37 @@ class BertCandidateScorer:
 
         # detokenize sentences
         # it is made by join because there is problem with MosesDetokenizer
-        # WordPiece tokenizer can't see [MASK]?
+        # WordPiece tokenizer can't see [MASK] token in "[MASK]?" string
         masked_sentences = [
             ' '.join(sentence) for sentence in masked_tokenized_sentences
         ]
 
         # make scoring
-        scoring_results = self.bert_scorer_model(
+        scoring_results_raw = self.bert_scorer_model(
             masked_sentences, candidates, agg_func=self.agg_subtoken_func
         )
 
         # adjust scoring results
         # now it is log probabilities, that makes them negative
         # make them positive
-        adjusted_results = [
+        scoring_results = [
             [-1/result for result in results]
-            for results in scoring_results
+            for results in scoring_results_raw
         ]
 
-        return adjusted_results
+        # make best corrections
+        current_scores = [
+            scoring_results[idx][0]
+            for idx in range(len(scoring_results))
+        ]
+        best_scores_with_indices = [
+            max(enumerate(sentence_scoring_results), key=lambda x: x[1])
+            for sentence_scoring_results in scoring_results
+        ]
+        best_scores = [x[1] for x in best_scores_with_indices]
+        best_candidates = [
+            candidates[i][x[0]]
+            for i, x in enumerate(best_scores_with_indices)
+        ]
+
+        return best_candidates, (current_scores, best_scores)
