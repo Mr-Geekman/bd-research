@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Optional, Callable
+from typing import List, Tuple, Set, Optional, Callable
 from string import punctuation
 
 import numpy as np
@@ -13,6 +13,13 @@ class KenlmPositionSelector:
             self, left_right_model: kenlm.Model, right_left_model: kenlm.Model,
             agg_subtoken_func: Callable = np.sum
     ):
+        """Init object.
+
+        :param left_right_model: kenlm language model from left to right
+        :param right_left_model: kenlm language model from right to left
+        :param agg_subtoken_func: function to aggregate scores
+            for few words in a candidate
+        """
         self.left_right_model = left_right_model
         self.right_left_model = right_left_model
         self.agg_subtoken_func = agg_subtoken_func
@@ -22,7 +29,7 @@ class KenlmPositionSelector:
             candidates_raw: List[List[List[Tuple[float, str]]]],
             current_tokens_candidates_indices_raw: List[List[int]],
             num_selected_candidates: int,
-            positions_black_list: List[List[int]] = None
+            positions_black_lists_raw: List[Set[int]] = None
     ) -> Tuple[List[Optional[int]],
                Tuple[List[Optional[float]], List[Optional[float]]],
                List[List[str]]]:
@@ -36,7 +43,8 @@ class KenlmPositionSelector:
             for current tokens in sentences
         :param num_selected_candidates: max number of selected tokens
             for each position in sentence
-        :param positions_black_list: black list of positions for each sentence
+        :param positions_black_lists_raw: black list of positions
+            for each sentence
 
         :returns:
             list of best positions for each sentence
@@ -46,9 +54,9 @@ class KenlmPositionSelector:
                 (or None if all positions are unavailable)
             selected candidates for each position for each sentence
         """
-        if positions_black_list is None:
-            positions_black_list = [
-                [] for _ in range(len(tokenized_sentences_raw))
+        if positions_black_lists_raw is None:
+            positions_black_lists_raw = [
+                set() for _ in range(len(tokenized_sentences_raw))
             ]
 
         # preprocess sentences
@@ -61,7 +69,7 @@ class KenlmPositionSelector:
             tokenized_sentences.append(processed_sentence)
             indices_mappings.append(indices_mapping)
 
-        # preprocess candidates
+        # prune some lists according to indices_mappings
         candidates = [
             [candidates_raw[i][idx] for idx in indices_mapping]
             for i, indices_mapping in enumerate(indices_mappings)
@@ -69,6 +77,11 @@ class KenlmPositionSelector:
         current_tokens_candidates_indices = [
             [current_tokens_candidates_indices_raw[i][idx]
              for idx in indices_mapping]
+            for i, indices_mapping in enumerate(indices_mappings)
+        ]
+        positions_black_lists = [
+            {j for j, idx in enumerate(indices_mapping)
+             if idx in positions_black_lists_raw[i]}
             for i, indices_mapping in enumerate(indices_mappings)
         ]
 
@@ -169,10 +182,10 @@ class KenlmPositionSelector:
                 sentence_position_candidates_scores_pairs = []
                 for j, score in enumerate(scores):
                     sentence_position_candidates_scores_pairs.append((
-                        score,
                         scores[
                             current_tokens_candidates_indices[num_sent][pos]
-                        ]
+                        ],
+                        score
                     ))
                 sentence_candidates_scores_pairs.append(
                     sentence_position_candidates_scores_pairs
@@ -180,24 +193,25 @@ class KenlmPositionSelector:
 
             # select best position
             max_positions_scores = [
-                max(pairs, key=lambda x: x[0]/x[1])
+                max(pairs, key=lambda x: x[1] - x[0])
                 for pairs in sentence_candidates_scores_pairs
             ]
             positions_with_scores = sorted(
-                enumerate(max_positions_scores), key=lambda x: x[1][0]/x[1][1],
+                enumerate(max_positions_scores),
+                key=lambda x: x[1][1] - x[1][0],
                 reverse=True
             )
 
             # skip black list with positions (if possible)
             best_position_score = (None, (None, None))
             for position_with_score in positions_with_scores:
-                if position_with_score[0] not in positions_black_list[num_sent]:
+                if position_with_score[0] not in positions_black_lists[num_sent]:
                     best_position_score = position_with_score
                     break
             best_position = best_position_score[0]
             best_positions.append(best_position_score[0])
-            positions_scores_cur.append(best_position_score[1][1])
-            positions_scores_pred.append(best_position_score[1][0])
+            positions_scores_cur.append(best_position_score[1][0])
+            positions_scores_pred.append(best_position_score[1][1])
             if best_position is None:
                 continue
 
@@ -205,7 +219,7 @@ class KenlmPositionSelector:
             # to calculated score (current token will be always at position 0)
             sort_value_indices = sorted(
                 enumerate(sentence_candidates_scores_pairs[best_position]),
-                key=lambda x: x[1][0]/x[1][1], reverse=True
+                key=lambda x: x[1][1] - x[1][0], reverse=True
             )
             sort_indices = [x[0] for x in sort_value_indices]
             current_token_idx = sort_indices.index(
@@ -272,8 +286,6 @@ class KenlmPositionSelector:
         # TODO: better algorithm of scoring
         left_right_score, right_left_score = scores
         # make scores positive (for interpretability)
-        left_right_score = -1/left_right_score
-        right_left_score = -1/right_left_score
         result_score = 2 * (
                 (left_right_score * right_left_score)
                 / (left_right_score + right_left_score)

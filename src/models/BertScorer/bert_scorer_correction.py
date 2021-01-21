@@ -17,6 +17,13 @@ class BertScorerCorrection:
             batch_size: int = 64,
             device: int = -1
     ):
+        """Init object.
+
+        :param model: Bert model for MLM from transformers library
+        :param tokenizer: tokenizer for Bert model
+        :param batch_size: size of batch
+        :param device: id of device
+        """
         self.device = torch.device('cpu' if device < 0 else f'cuda:{device}')
         self.model = model.to(device=self.device)
         self.batch_size = batch_size

@@ -15,6 +15,12 @@ class BertScorerSentence:
             tokenizer: PreTrainedTokenizer,
             device: int = -1
     ):
+        """Init object.
+
+        :param model: Bert model for MLM from transformers library
+        :param tokenizer: tokenizer for Bert model
+        :param device: id of device
+        """
         self.device = torch.device('cpu' if device < 0 else f'cuda:{device}')
         self.model = model.to(device=self.device)
         self.tokenizer = tokenizer

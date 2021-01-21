@@ -16,13 +16,19 @@ class BertCandidateScorer:
             bert_scorer_model: BertScorerCorrection,
             agg_subtoken_func: Callable = np.mean
     ):
+        """Init object.
+
+        :param bert_scorer_model: model for scoring based on Bert
+        :param agg_subtoken_func: function to aggregate scores for
+            WordPiece subtokens in candidates
+        """
         self.bert_scorer_model = bert_scorer_model
         self.agg_subtoken_func = agg_subtoken_func
 
     def __call__(
             self, tokenized_sentences: List[List[str]],
             positions: List[int], candidates: List[List[str]]
-    ) -> Tuple[List[str], Tuple[List[float], List[float]]]:
+    ) -> Tuple[List[int], Tuple[List[float], List[float]]]:
         """Make scoring for candidates for every sentence and adjust them.
 
         :param tokenized_sentences: list of tokenized sentences
@@ -31,7 +37,7 @@ class BertCandidateScorer:
             in each sentence
 
         :returns:
-            best candidates for each position
+            indices of best candidates for each position
             (list of current scores for each sentence,
             list of best scores for each sentence)
         """
@@ -50,19 +56,11 @@ class BertCandidateScorer:
         ]
 
         # make scoring
-        scoring_results_raw = self.bert_scorer_model(
+        scoring_results = self.bert_scorer_model(
             masked_sentences, candidates, agg_func=self.agg_subtoken_func
         )
 
-        # adjust scoring results
-        # now it is log probabilities, that makes them negative
-        # make them positive
-        scoring_results = [
-            [-1/result for result in results]
-            for results in scoring_results_raw
-        ]
-
-        # make best corrections
+        # find best corrections
         current_scores = [
             scoring_results[idx][0]
             for idx in range(len(scoring_results))
@@ -71,10 +69,7 @@ class BertCandidateScorer:
             max(enumerate(sentence_scoring_results), key=lambda x: x[1])
             for sentence_scoring_results in scoring_results
         ]
+        best_indices = [x[0] for x in best_scores_with_indices]
         best_scores = [x[1] for x in best_scores_with_indices]
-        best_candidates = [
-            candidates[i][x[0]]
-            for i, x in enumerate(best_scores_with_indices)
-        ]
 
-        return best_candidates, (current_scores, best_scores)
+        return best_indices, (current_scores, best_scores)

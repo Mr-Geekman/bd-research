@@ -14,6 +14,11 @@ class LevenshteinCandidateGenerator:
             self,
             levenshtein_candidate_generator: LevenshteinSearcherComponent,
     ):
+        """Init object.
+
+        :param levenshtein_candidate_generator: model for candidate
+            generation based on Levenshtein distance
+        """
         self.levenshtein_candidate_generator = levenshtein_candidate_generator
 
     def __call__(

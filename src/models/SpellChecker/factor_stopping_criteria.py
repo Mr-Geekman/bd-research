@@ -10,6 +10,10 @@ class FactorStoppingCriteria:
             self,
             factor_constant,
     ):
+        """Init object.
+
+        :param factor_constant: constant for comparison
+        """
         self.factor_constant = factor_constant
 
     def __call__(

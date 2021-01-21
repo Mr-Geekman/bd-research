@@ -10,6 +10,10 @@ class MarginStoppingCriteria:
             self,
             margin_constant,
     ):
+        """Init object.
+
+        :param factor_constant: constant for comparison
+        """
         self.margin_constant = margin_constant
 
     def __call__(

@@ -23,9 +23,9 @@ snakemake data --cores 1
 
 ## Языковые модели
 
-Можно взять уже обученные в ноутбуке `3.0-db-training_lm.ipynb` языковые модели по [ссылке](https://drive.google.com/drive/folders/1iUR-SiMzbZkuHAAzJZLfiO9q7rIze2GI?usp=sharing): в директории models/kenlm.
+Можно взять уже обученные в ноутбуке `2.0-db-training_lm.ipynb` языковые модели по [ссылке](https://drive.google.com/drive/folders/1iUR-SiMzbZkuHAAzJZLfiO9q7rIze2GI?usp=sharing): в директории models/kenlm.
 
-Если требуется обучить языковые модели на своем корпусе, то потребуется склонировать [kenlm](https://github.com/kpu/kenlm) в src/kenlm и скомпилировать библиотеку, а потом повторить то, что было сделано в ноутбуке `3.0-db-training_lm.ipynb`.
+Если требуется обучить языковые модели на своем корпусе, то потребуется склонировать [kenlm](https://github.com/kpu/kenlm) в src/kenlm и скомпилировать библиотеку, а потом повторить то, что было сделано в ноутбуке `2.0-db-training_lm.ipynb`.
 
 
 ## Структура проекта
