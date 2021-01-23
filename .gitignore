@@ -102,3 +102,6 @@ catboost_info/
 
 # Kenlm sources
 /src/kenlm/
+
+# Debug folder
+.debug

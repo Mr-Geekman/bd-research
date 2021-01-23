@@ -26,9 +26,9 @@ class KenlmPositionSelector:
 
     def __call__(
             self, tokenized_sentences_raw: List[List[str]],
-            candidates_raw: List[List[List[Tuple[float, str]]]],
+            candidates_raw: List[List[List[str]]],
             current_tokens_candidates_indices_raw: List[List[int]],
-            num_selected_candidates: int,
+            num_selected_candidates: Optional[int] = None,
             positions_black_lists_raw: List[Set[int]] = None
     ) -> Tuple[List[Optional[int]],
                Tuple[List[Optional[float]], List[Optional[float]]],
@@ -41,8 +41,8 @@ class KenlmPositionSelector:
             for each position in each sentence
         :param current_tokens_candidates_indices_raw: list of indices
             for current tokens in sentences
-        :param num_selected_candidates: max number of selected tokens
-            for each position in sentence
+        :param num_selected_candidates: maximum number of selected tokens
+            for each position in sentence or no restriction
         :param positions_black_lists_raw: black list of positions
             for each sentence
 
@@ -101,7 +101,7 @@ class KenlmPositionSelector:
             self.left_right_model.BeginSentenceWrite(state)
             prev_state = state
             for pos, token in enumerate(tokenized_sentence):
-                for score, candidate in candidates[num_sent][pos]:
+                for candidate in candidates[num_sent][pos]:
                     candidate_lm_score = []
                     prev_local_state = prev_state
                     # process subtokens if candidate contains whitespaces
@@ -123,7 +123,7 @@ class KenlmPositionSelector:
                     prev_state,
                     candidates[num_sent][pos][
                         current_tokens_candidates_indices[num_sent][pos]
-                    ][1], state
+                    ], state
                 )
                 prev_state = state
 
@@ -133,7 +133,7 @@ class KenlmPositionSelector:
             prev_state = state
             for inv_pos, token in enumerate(tokenized_sentence[::-1]):
                 pos = len(tokenized_sentence) - 1 - inv_pos
-                for i, (score, candidate) in enumerate(
+                for i, candidate in enumerate(
                         candidates[num_sent][pos]
                 ):
                     candidate_lm_score = []
@@ -157,7 +157,7 @@ class KenlmPositionSelector:
                     prev_state,
                     candidates[num_sent][pos][
                         current_tokens_candidates_indices[num_sent][pos]
-                    ][1], state
+                    ], state
                 )
                 prev_state = state
 
@@ -213,6 +213,7 @@ class KenlmPositionSelector:
             positions_scores_cur.append(best_position_score[1][0])
             positions_scores_pred.append(best_position_score[1][1])
             if best_position is None:
+                positions_candidates.append([])
                 continue
 
             # select candidates for best position according
@@ -229,10 +230,14 @@ class KenlmPositionSelector:
             sort_indices.insert(
                 0, current_tokens_candidates_indices[num_sent][best_position]
             )
+            if num_selected_candidates is None:
+                selected_sort_indices = sort_indices
+            else:
+                selected_sort_indices = sort_indices[:num_selected_candidates]
             positions_candidates.append(
                 [
-                    candidates[num_sent][best_position][idx][1]
-                    for idx in sort_indices[:num_selected_candidates]
+                    candidates[num_sent][best_position][idx]
+                    for idx in selected_sort_indices
                 ]
             )
 
@@ -264,7 +269,7 @@ class KenlmPositionSelector:
         processed_sentence = []
         indices_mapping = []
         for i, token in enumerate(tokenized_sentence):
-            if not re.fullmatch('[' + punctuation + ']+', token):
+            if not re.fullmatch(f'[{punctuation}]+', token):
                 processed_sentence.append(token)
                 indices_mapping.append(i)
 

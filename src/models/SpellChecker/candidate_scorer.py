@@ -3,7 +3,7 @@ from copy import copy
 
 import numpy as np
 
-from src.models.BertScorer.bert_scorer_correction import BertScorerCorrection
+from src.models.BertScorer import BertScorerCorrection
 
 
 class BertCandidateScorer:

@@ -1,6 +1,7 @@
-from .levenshtein_candidate_generator import LevenshteinCandidateGenerator
-from .kenlm_position_selector import KenlmPositionSelector
-from .bert_candidate_scorer import BertCandidateScorer
-from .factor_stopping_criteria import FactorStoppingCriteria
-from .margin_stopping_criteria import MarginStoppingCriteria
+from .candidate_generator import CandidateGenerator
+from .candidate_generator import LevenshteinSearcher, PhoneticSeacher
+from .position_selector import KenlmPositionSelector
+from .candidate_scorer import BertCandidateScorer
+from .stopping_criteria import FactorStoppingCriteria
+from .stopping_criteria import MarginStoppingCriteria
 from .spell_checker import IterativeSpellChecker

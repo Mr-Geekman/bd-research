@@ -432,7 +432,7 @@ if __name__ == "__main__":
         100 * precision, 100 * recall, 100 * f_measure))
     print(TP, len(answer_corrections), len(etalon_corrections))
     if to_output_differences:
-        output_differences(source_sents, correct_sents, answer_sents,
+        output_differences(diff_file, source_sents, correct_sents, answer_sents,
                            etalon_corrections, answer_corrections)
 
 

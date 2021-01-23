@@ -1,5 +1,6 @@
 import re
-from typing import List, Callable, Any
+from copy import copy
+from typing import List, Callable, Optional, Any
 from string import punctuation
 
 
@@ -34,7 +35,8 @@ class IterativeSpellChecker:
             tokenizer: Callable,
             detokenizer: Callable,
             make_blacklisting: bool = True,
-            num_selected_candidates: int = 16,
+            num_selected_candidates: Optional[int] = None,
+            ignore_titles: bool = True,
             max_it: int = 5,
     ):
         """Init object
@@ -47,8 +49,9 @@ class IterativeSpellChecker:
         :param detokenizer: detokenizer for output sentences
         :param make_blacklisting: use or not to use black lists
             for positions in that we failed to make correction
-        :param num_selected_candidates: number of candidates
-            selected for position by position selector
+        :param num_selected_candidates: maximum number of candidates
+            selected for position by position selector or no restriction
+        :param ignore_titles: ignore titled words in correction
         :param max_it: maximum number of iterations
         """
         self.candidate_generator = candidate_generator
@@ -59,6 +62,7 @@ class IterativeSpellChecker:
         self.detokenizer = detokenizer
         self.make_blacklisting = make_blacklisting
         self.num_selected_candidates = num_selected_candidates
+        self.ignore_titles = ignore_titles
         self.max_it = max_it
 
     def __call__(self, sentences: List[str]) -> List[str]:
@@ -85,10 +89,20 @@ class IterativeSpellChecker:
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
         # indices of processed sentences
         indices_processing_sentences = list(range(len(tokenized_sentences)))
-        # black lists of positions
-        positions_black_lists = [
-            set() for _ in range(len(tokenized_sentences))
-        ]
+
+        # creating black lists
+        # initial black list of positions
+        if self.ignore_titles:
+            initial_black_lists = [
+                {i for i, token in enumerate(sentence_start)
+                 if i != 0 and token.istitle()}
+                for sentence_start in tokenized_sentences_start
+            ]
+        else:
+            initial_black_lists = [
+                set() for _ in range(len(tokenized_sentences))
+            ]
+        positions_black_lists = copy(initial_black_lists)
 
         # start iteration procedure
         for cur_it in range(self.max_it):
@@ -100,7 +114,7 @@ class IterativeSpellChecker:
                 sentence_current_tokens_candidates_indices = []
                 for j in range(len(tokenized_sentences[i])):
                     current_token = tokenized_sentences[i][j]
-                    current_candidates = [x[1] for x in candidates[i][j]]
+                    current_candidates = [x for x in candidates[i][j]]
                     sentence_current_tokens_candidates_indices.append(
                         current_candidates.index(current_token)
                     )
@@ -163,7 +177,7 @@ class IterativeSpellChecker:
                     # if not current token was selected then we should
                     # clear black list to review all positions in new context
                     else:
-                        positions_black_lists[i] = set()
+                        positions_black_lists[i] = copy(initial_black_lists[i])
 
         # process remain sentences if they aren't finished
         for i in range(len(tokenized_sentences)):
