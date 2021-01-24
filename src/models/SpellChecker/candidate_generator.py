@@ -1,5 +1,5 @@
 import re
-from typing import List, Iterable, Tuple
+from typing import List, Iterable, Dict
 from string import punctuation
 
 from deeppavlov.models.spelling_correction.levenshtein import (
@@ -40,6 +40,44 @@ class LevenshteinSearcher:
             for candidates_sentence in candidates_with_probs
         ]
         return candidates
+
+
+class HandcodeSearcher:
+    """Class for manually adding candidates."""
+
+    def __init__(self, table: Dict[str, str]):
+        """Init object.
+
+        :param table: table of handcoded candidates
+        """
+        self.table = table
+
+    def _infer_token(self, token: str) -> List[str]:
+        """Generate candidates for one token.
+
+        :param token: one token
+
+        :returns: list of candidates
+        """
+        # normalize token
+        token = re.sub(f'[{punctuation}]', '', token.lower().replace('ё', 'е'))
+        # make query in table
+        answer = self.table.get(token)
+        if answer:
+            return [answer]
+        else:
+            return []
+
+    def __call__(self, batch: List[List[str]]) -> List[List[List[str]]]:
+        """Propose candidates for tokens in sentences
+
+        :param batch: batch of tokenized sentences
+
+        :returns: list of candidates for each position
+            for each sentence of batch
+        """
+        return [[self._infer_token(token) for token in sentence]
+                for sentence in batch]
 
 
 class PhoneticSeacher:
@@ -177,21 +215,26 @@ class CandidateGenerator:
     def __init__(
             self,
             words: Iterable[str],
-            max_distance: int = 1
+            handcode_table: Dict[str, str],
+            max_distance: int = 1,
     ):
         """Init object.
 
         :param words: possible words of candidates
         :param max_distance: max distance for LevenshteinSearcherComponent
+        :param handcode_table: table of handcoded candidates
         """
         self.words = list(words)
         self.max_distance = max_distance
+        self.handcode_table = handcode_table
         # create levenstein searcher
         self.levenshtein_searcher = LevenshteinSearcher(
             words=self.words, max_distance=self.max_distance
         )
         # create phonetic searcher
         self.phonetic_searcher = PhoneticSeacher(words=self.words)
+        # create handcode searcher
+        self.handcode_searcher = HandcodeSearcher(self.handcode_table)
 
     def __call__(
             self, tokenized_sentences: List[List[str]],
@@ -204,6 +247,7 @@ class CandidateGenerator:
         """
         candidates_levenshtein = self.levenshtein_searcher(tokenized_sentences)
         candidates_phonetic = self.phonetic_searcher(tokenized_sentences)
+        candidates_handcoded = self.handcode_searcher(tokenized_sentences)
 
         # unite candidates of different searchers
         candidates = [
@@ -211,6 +255,7 @@ class CandidateGenerator:
                 list(set(
                     candidates_levenshtein[i][j]
                     + candidates_phonetic[i][j]
+                    + candidates_handcoded[i][j]
                     + [tokenized_sentences[i][j]]
                 ))
                 for j in range(len(tokenized_sentences[i]))
