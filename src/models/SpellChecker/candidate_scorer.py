@@ -1,63 +1,37 @@
-from typing import List, Tuple, Callable
-from copy import copy
-
-import numpy as np
-
-from src.models.BertScorer import BertScorerCorrection
+from typing import List, Tuple, Dict, Any
 
 
-class BertCandidateScorer:
-    """Wrapper class over BertScorerCorrection
-    to score candidates for correction.
-    """
+class CandidateScorer:
+    """Class that using features  to score candidates for correction."""
 
-    def __init__(
-            self,
-            bert_scorer_model: BertScorerCorrection,
-            agg_subtoken_func: Callable = np.mean
-    ):
+    def __init__(self, scorer):
         """Init object.
 
-        :param bert_scorer_model: model for scoring based on Bert
-        :param agg_subtoken_func: function to aggregate scores for
-            WordPiece subtokens in candidates
+        :param scorer: model for scoring based of features of candidates
         """
-        self.bert_scorer_model = bert_scorer_model
-        self.agg_subtoken_func = agg_subtoken_func
+        self.scorer = scorer
 
     def __call__(
             self, tokenized_sentences: List[List[str]],
-            positions: List[int], candidates: List[List[str]]
-    ) -> Tuple[List[int], Tuple[List[float], List[float]]]:
+            positions: List[int],
+            candidates_features: List[List[Tuple[str, Dict[str, Any]]]]
+    ) -> Tuple[List[int], Tuple[List[float], List[float]], List[List[float]]]:
         """Make scoring for candidates for every sentence and adjust them.
 
         :param tokenized_sentences: list of tokenized sentences
         :param positions: positions for candidates scoring for each sentence
-        :param candidates: candidates for given positions
-            in each sentence
+        :param candidates_features: candidates and their features
+            for given positions in each sentence
 
         :returns:
             indices of best candidates for each position
             (list of current scores for each sentence,
             list of best scores for each sentence)
+            results of scoring
         """
-        # add mask tokens to given positions
-        masked_tokenized_sentences = []
-        for i, pos in enumerate(positions):
-            current_sentence = copy(tokenized_sentences[i])
-            current_sentence[pos] = self.bert_scorer_model.tokenizer.mask_token
-            masked_tokenized_sentences.append(current_sentence)
-
-        # detokenize sentences
-        # it is made by join because there is problem with MosesDetokenizer
-        # WordPiece tokenizer can't see [MASK] token in "[MASK]?" string
-        masked_sentences = [
-            ' '.join(sentence) for sentence in masked_tokenized_sentences
-        ]
-
         # make scoring
-        scoring_results = self.bert_scorer_model(
-            masked_sentences, candidates, agg_func=self.agg_subtoken_func
+        scoring_results = self.scorer(
+            tokenized_sentences, positions, candidates_features
         )
 
         # find best corrections
@@ -72,4 +46,4 @@ class BertCandidateScorer:
         best_indices = [x[0] for x in best_scores_with_indices]
         best_scores = [x[1] for x in best_scores_with_indices]
 
-        return best_indices, (current_scores, best_scores)
+        return best_indices, (current_scores, best_scores), scoring_results

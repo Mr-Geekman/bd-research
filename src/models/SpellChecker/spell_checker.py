@@ -34,10 +34,11 @@ class IterativeSpellChecker:
             stopping_criteria: Callable,
             tokenizer: Callable,
             detokenizer: Callable,
-            make_blacklisting: bool = True,
             num_selected_candidates: Optional[int] = None,
-            ignore_titles: bool = True,
             max_it: int = 5,
+            ignore_titles: bool = True,
+            make_blacklisting: bool = True
+
     ):
         """Init object
 
@@ -47,12 +48,12 @@ class IterativeSpellChecker:
         :param stopping_criteria: stopping criteria
         :param tokenizer: tokenizer for input sentences
         :param detokenizer: detokenizer for output sentences
-        :param make_blacklisting: use or not to use black lists
-            for positions in that we failed to make correction
         :param num_selected_candidates: maximum number of candidates
             selected for position by position selector or no restriction
-        :param ignore_titles: ignore titled words in correction
         :param max_it: maximum number of iterations
+        :param ignore_titles: ignore titled words in correction
+        :param make_blacklisting: use or not to use black lists
+            for positions in that we failed to make correction
         """
         self.candidate_generator = candidate_generator
         self.position_selector = position_selector
@@ -60,43 +61,52 @@ class IterativeSpellChecker:
         self.stopping_criteria = stopping_criteria
         self.tokenizer = tokenizer
         self.detokenizer = detokenizer
-        self.make_blacklisting = make_blacklisting
         self.num_selected_candidates = num_selected_candidates
-        self.ignore_titles = ignore_titles
         self.max_it = max_it
+        self.make_blacklisting = make_blacklisting
+        self.ignore_titles = ignore_titles
 
-    def __call__(self, sentences: List[str]) -> List[str]:
+    def __call__(
+            self, sentences: List[str],
+            callback_candidate_scorer: Optional[Callable] = None
+    ) -> List[str]:
         """Make corrections for sentences.
 
         :param sentences: list of sentences
+        :param callback_candidate_scorer: some function
+            to call after running candidate scorer
 
         :returns: list of corrected sentences
         """
-        # make tokenization
-        tokenized_sentences_start = [
-            self.tokenizer(sentence) for sentence in sentences
+        # make tokenization and basic preprocessing
+        tokenized_sentences_cased = [
+            self.tokenizer(sentence.replace('ё', 'е').replace('Ё', 'Е'))
+            for sentence in sentences
         ]
         # make lowercase
         tokenized_sentences = [
-            [x.lower().replace('ё', 'е') for x in sentence]
-            for sentence in tokenized_sentences_start
+            [x.lower() for x in sentence]
+            for sentence in tokenized_sentences_cased
         ]
 
         # find correction for each token and their scores
-        candidates = self.candidate_generator(tokenized_sentences)
+        candidates = self.candidate_generator(
+            tokenized_sentences_cased
+        )
 
         # list of results
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
         # indices of processed sentences
         indices_processing_sentences = list(range(len(tokenized_sentences)))
 
+        # TODO: make option not to do it
         # creating black lists
         # initial black list of positions
         if self.ignore_titles:
             initial_black_lists = [
                 {i for i, token in enumerate(sentence_start)
                  if i != 0 and token.istitle()}
-                for sentence_start in tokenized_sentences_start
+                for sentence_start in tokenized_sentences_cased
             ]
         else:
             initial_black_lists = [
@@ -114,7 +124,7 @@ class IterativeSpellChecker:
                 sentence_current_tokens_candidates_indices = []
                 for j in range(len(tokenized_sentences[i])):
                     current_token = tokenized_sentences[i][j]
-                    current_candidates = [x for x in candidates[i][j]]
+                    current_candidates = [x[0] for x in candidates[i][j]]
                     sentence_current_tokens_candidates_indices.append(
                         current_candidates.index(current_token)
                     )
@@ -157,14 +167,27 @@ class IterativeSpellChecker:
                 break
 
             # make scoring of candidates
-            best_candidates_indices, candidate_scores = self.candidate_scorer(
+            candidate_scorer_results = self.candidate_scorer(
                 tokenized_sentences, best_positions,
                 positions_candidates
             )
+            best_candidates_indices = candidate_scorer_results[0]
+            candidate_scores = candidate_scorer_results[1]
+            scoring_results = candidate_scorer_results[2]
+
+            # make callback if needed
+            if callback_candidate_scorer:
+                callback_candidate_scorer(
+                    tokenized_sentences, indices_processing_sentences,
+                    best_positions, positions_candidates,
+                    scoring_results
+                )
 
             # make best corrections
             for i in range(len(tokenized_sentences)):
-                candidate = positions_candidates[i][best_candidates_indices[i]]
+                candidate = positions_candidates[i][
+                    best_candidates_indices[i]
+                ][0]
                 tokenized_sentences[i][best_positions[i]] = candidate
 
             # update black lists of positions

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Callable
+from typing import List, Tuple, Any, Dict, Callable
 
 import numpy as np
 import torch
@@ -30,7 +30,7 @@ class BertScorerCorrection:
         self.tokenizer = tokenizer
 
     def __call__(self, sentences: List[str], candidates: List[List[str]],
-                 agg_func: Callable = np.mean) -> List[List[float]]:
+                 agg_func: Callable = np.mean) -> List[List[Any]]:
         """Make scoring for candidates for every sentence.
 
         :param sentences: list of sentences with mask token,

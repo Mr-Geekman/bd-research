@@ -1,5 +1,5 @@
 import re
-from typing import List, Iterable, Dict
+from typing import List, Tuple, Iterable, Dict, Any
 from string import punctuation
 
 from deeppavlov.models.spelling_correction.levenshtein import (
@@ -31,13 +31,14 @@ class LevenshteinSearcher:
             for each sentence of batch
         """
         candidates_with_probs = self.model(batch)
-        # get rid of scores
+        # get rid of scores and ignore initial token
         candidates = [
             [
-                [candidate[1] for candidate in candidates_position]
-                for candidates_position in candidates_sentence
+                [candidate[1] for candidate in candidates_position
+                 if candidate[1] != batch[i][j]]
+                for j, candidates_position in enumerate(candidates_sentence)
             ]
-            for candidates_sentence in candidates_with_probs
+            for i, candidates_sentence in enumerate(candidates_with_probs)
         ]
         return candidates
 
@@ -224,7 +225,9 @@ class CandidateGenerator:
         :param max_distance: max distance for LevenshteinSearcherComponent
         :param handcode_table: table of handcoded candidates
         """
-        self.words = list(words)
+        self.words = list(
+            {word.strip().lower().replace('ё', 'е') for word in words}
+        )
         self.max_distance = max_distance
         self.handcode_table = handcode_table
         # create levenstein searcher
@@ -237,29 +240,123 @@ class CandidateGenerator:
         self.handcode_searcher = HandcodeSearcher(self.handcode_table)
 
     def __call__(
-            self, tokenized_sentences: List[List[str]],
-    ) -> List[List[List[str]]]:
-        """Create candidates for each position in each sentence.
+            self, tokenized_sentences_cased: List[List[str]]
+    ) -> List[List[List[Tuple[str, Dict[str, Any]]]]]:
+        """Create candidates and their features
+        for each position in each sentence.
 
-        :param tokenized_sentences: list of tokenized sentences
+        :param tokenized_sentences_cased: list of tokenized sentences
+            before making lowercase
 
-        :returns: list of candidates for each sentence for each position
+        :returns: list of candidates and their feautures
+        for each sentence for each position
         """
+        # make lowercase
+        tokenized_sentences = [
+            [x.lower() for x in sentence]
+            for sentence in tokenized_sentences_cased
+        ]
+
+        # collect information about position
+        positional_features = [
+            [{'is_title': token.istitle(),
+              'is_upper': token.isupper(),
+              'is_lower': token.islower(),
+              'is_first': j == 0
+              } for j, token in enumerate(sentence)]
+            for i, sentence in enumerate(tokenized_sentences_cased)
+        ]
+
         candidates_levenshtein = self.levenshtein_searcher(tokenized_sentences)
         candidates_phonetic = self.phonetic_searcher(tokenized_sentences)
-        candidates_handcoded = self.handcode_searcher(tokenized_sentences)
+        candidates_handcode = self.handcode_searcher(tokenized_sentences)
 
-        # unite candidates of different searchers
-        candidates = [
-            [
-                list(set(
-                    candidates_levenshtein[i][j]
-                    + candidates_phonetic[i][j]
-                    + candidates_handcoded[i][j]
-                    + [tokenized_sentences[i][j]]
-                ))
-                for j in range(len(tokenized_sentences[i]))
-            ]
-            for i in range(len(tokenized_sentences))
-        ]
+        # collect all candidates and their features
+        candidates: List[List[List[Tuple[str, Dict[str, Any]]]]] = []
+        for i in range(len(tokenized_sentences)):
+            candidates_sentence: List[List[Tuple[str, Dict[str, Any]]]] = []
+            for j in range(len(tokenized_sentences[i])):
+                # make dict not to duplicate candidates
+                candidates_position: Dict[str, Dict[str, Any]] = {}
+                # add initial token
+                candidate = tokenized_sentences[i][j]
+                candidates_position[candidate] = {}
+                candidates_position[candidate].update(
+                    self._calculate_features(candidate,
+                                             positional_features[i][j])
+                )
+                # only initial token can be non-vocabulary word
+                candidates_position[candidate].update({
+                    'from_vocabulary': candidate in self.words,
+                    'is_original': True
+                })
+
+                # add candidates from levenshtein searcher
+                self._add_candidates_from_searcher(
+                    candidates_position,
+                    candidates_levenshtein[i][j],
+                    positional_features[i][j],
+                    {'from_levenshtein_searcher': True}
+                )
+                # add candidates from phonetic searcher
+                self._add_candidates_from_searcher(
+                    candidates_position,
+                    candidates_phonetic[i][j],
+                    positional_features[i][j],
+                    {'from_phonetic_searcher': True}
+                )
+                # add candidates from handcode searcher
+                self._add_candidates_from_searcher(
+                    candidates_position,
+                    candidates_handcode[i][j],
+                    positional_features[i][j],
+                    {'from_handcode_searcher': True}
+                )
+
+                candidates_sentence.append(
+                    list(candidates_position.items())
+                )
+            candidates.append(
+                candidates_sentence
+            )
+
         return candidates
+
+    def _calculate_features(
+            self, token: str, positional_features: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Calculation of features for candidate.
+
+        :param token: token value
+        :param positional_features: information about position
+
+        :returns: dictionary with features
+        """
+        # add positional features
+        features = {}
+        features.update(positional_features)
+        # add feature about space/hyphen
+        features['contains_space'] = (' ' in token)
+        features['contains_hyphen'] = ('-' in token)
+        # default features
+        features['from_levenshtein_searcher'] = False
+        features['from_phonetic_searcher'] = False
+        features['from_handcode_searcher'] = False
+        features['is_original'] = False
+        features['from_vocabulary'] = True
+        return features
+
+    def _add_candidates_from_searcher(
+            self, candidates_with_features: Dict[str, Dict[str, Any]],
+            candidates_raw: List[str],
+            positional_features: Dict[str, Any],
+            update_dict: Dict[str, Any]
+    ) -> None:
+        for candidate in candidates_raw:
+            if candidate not in candidates_with_features:
+                candidates_with_features[candidate] = (
+                    self._calculate_features(
+                        candidate, positional_features
+                    )
+                )
+            candidates_with_features[candidate].update(update_dict)

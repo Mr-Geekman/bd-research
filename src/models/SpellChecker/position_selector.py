@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Set, Optional, Callable
+from typing import List, Tuple, Set, Dict, Optional, Callable, Any
 from string import punctuation
 
 import numpy as np
@@ -26,18 +26,18 @@ class KenlmPositionSelector:
 
     def __call__(
             self, tokenized_sentences_raw: List[List[str]],
-            candidates_raw: List[List[List[str]]],
+            candidates_raw: List[List[List[Tuple[str, Dict[str, Any]]]]],
             current_tokens_candidates_indices_raw: List[List[int]],
             num_selected_candidates: Optional[int] = None,
             positions_black_lists_raw: List[Set[int]] = None
     ) -> Tuple[List[Optional[int]],
                Tuple[List[Optional[float]], List[Optional[float]]],
-               List[List[str]]]:
+               List[List[Tuple[str, Dict[str, Any]]]]]:
         """Select best positions for correction and candidates to score.
 
         :param tokenized_sentences_raw: list of sentences,
             that are list of tokens
-        :param candidates_raw: list of possible corrections
+        :param candidates_raw: list of possible corrections and their features
             for each position in each sentence
         :param current_tokens_candidates_indices_raw: list of indices
             for current tokens in sentences
@@ -52,7 +52,8 @@ class KenlmPositionSelector:
             (list of current scores for best positions,
             list of best predicted scores for best positions)
                 (or None if all positions are unavailable)
-            selected candidates for each position for each sentence
+            selected candidates and their features
+                for each position for each sentence
         """
         if positions_black_lists_raw is None:
             positions_black_lists_raw = [
@@ -101,7 +102,7 @@ class KenlmPositionSelector:
             self.left_right_model.BeginSentenceWrite(state)
             prev_state = state
             for pos, token in enumerate(tokenized_sentence):
-                for candidate in candidates[num_sent][pos]:
+                for candidate, features in candidates[num_sent][pos]:
                     candidate_lm_score = []
                     prev_local_state = prev_state
                     # process subtokens if candidate contains whitespaces
@@ -123,7 +124,7 @@ class KenlmPositionSelector:
                     prev_state,
                     candidates[num_sent][pos][
                         current_tokens_candidates_indices[num_sent][pos]
-                    ], state
+                    ][0], state
                 )
                 prev_state = state
 
@@ -133,7 +134,7 @@ class KenlmPositionSelector:
             prev_state = state
             for inv_pos, token in enumerate(tokenized_sentence[::-1]):
                 pos = len(tokenized_sentence) - 1 - inv_pos
-                for i, candidate in enumerate(
+                for i, (candidate, features) in enumerate(
                         candidates[num_sent][pos]
                 ):
                     candidate_lm_score = []
@@ -157,7 +158,7 @@ class KenlmPositionSelector:
                     prev_state,
                     candidates[num_sent][pos][
                         current_tokens_candidates_indices[num_sent][pos]
-                    ], state
+                    ][0], state
                 )
                 prev_state = state
 
@@ -176,7 +177,7 @@ class KenlmPositionSelector:
                 for pos, scores in enumerate(sentence_candidates_scores)
             ]
 
-            # add to the score score of current token
+            # concatenating the score of current token in this position
             sentence_candidates_scores_pairs = []
             for pos, scores in enumerate(sentence_candidates_agg_scores):
                 sentence_position_candidates_scores_pairs = []
@@ -234,12 +235,19 @@ class KenlmPositionSelector:
                 selected_sort_indices = sort_indices
             else:
                 selected_sort_indices = sort_indices[:num_selected_candidates]
-            positions_candidates.append(
-                [
-                    candidates[num_sent][best_position][idx]
-                    for idx in selected_sort_indices
-                ]
-            )
+
+            # update positions candidates and add kenlm features
+            positions_candidates_sentence = []
+            for idx in selected_sort_indices:
+                candidate = candidates[num_sent][best_position][idx]
+                candidate[1]['kenlm_left_right'] = sentence_candidates_scores[
+                    best_position
+                ][idx][0]
+                candidate[1]['kenlm_right_left'] = sentence_candidates_scores[
+                    best_position
+                ][idx][1]
+                positions_candidates_sentence.append(candidate)
+            positions_candidates.append(positions_candidates_sentence)
 
         # correct best_positions according to initial_mappings
         best_positions_adjusted = []
