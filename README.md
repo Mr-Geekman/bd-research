@@ -11,10 +11,9 @@
 | Spell Checker        | Precision | Recall    | F-measure |
 | -------------------- | --------- | --------- | --------- |
 | Yandex.Speller       | 83.09     | 59.86     | 69.59     |
-| JamSpell             | 44.57     | 35.69     | 39.64     |
 | SpellRuEval Baseline | 55.91     | 46.41     | 50.72     |
-| SpellRuEval Winner   | 81.98     | **69.25** | **75.07** |
-| Our solution         | **85.78** | 66.38     | 74.84     |
+| SpellRuEval Winner   | 81.98     | 69.25     | 75.07     |
+| Our solution         | **87.18** | **70.33** | **77.86** |
 
 
 ## Разработка
@@ -29,8 +28,8 @@ conda create --name <env> --file requirements.txt
 snakemake data --cores 1
 ```
 
-На данный момент также требуется установить переменную окружения `DP_PROJECT_PATH`
-в путь до директории данного проекта.
+Так загрузятся на все данные. Остальные можно найти на [гугл-диске](https://drive.google.com/drive/folders/1iUR-SiMzbZkuHAAzJZLfiO9q7rIze2GI?usp=sharing).
+
 
 ## Языковые модели
 

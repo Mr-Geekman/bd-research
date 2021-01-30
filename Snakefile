@@ -20,11 +20,13 @@ rule data:
         wget http://files.deeppavlov.ai/deeppavlov_data/vocabs/russian_words_vocab.dict.gz -P data/external/
         gzip -d data/external/russian_words_vocab.dict.gz
 
-        # load kenlm model
-        mkdir -p models/kenlm
-
         # load rubert model
         wget http://files.deeppavlov.ai/deeppavlov_data/bert/rubert_cased_L-12_H-768_A-12_pt.tar.gz -P models/
         tar -xf models/rubert_cased_L-12_H-768_A-12_pt.tar.gz -C models/
         mv models/rubert_cased_L-12_H-768_A-12_pt models/rubert
+
+        # load coversational rubert model
+        wget http://files.deeppavlov.ai/deeppavlov_data/bert/ru_conversational_cased_L-12_H-768_A-12_pt.tar.gz -P models/
+        tar -xf models/ru_conversational_cased_L-12_H-768_A-12_pt.tar.gz -C models/
+        mv models/ru_conversational_cased_L-12_H-768_A-12_pt models/conversational_rubert
         """

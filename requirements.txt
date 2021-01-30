@@ -1,7 +1,8 @@
 # This file may be used to create an environment using:
 # $ conda create --name <env> --file <this file>
 # platform: linux-64
-_libgcc_mutex=0.1=main
+_libgcc_mutex=0.1=conda_forge
+_openmp_mutex=4.5=1_gnu
 aio-pika=6.4.1=pypi_0
 aiormq=3.3.1=pypi_0
 amply=0.1.2=pypi_0
@@ -22,9 +23,10 @@ brotlipy=0.7.0=py37h8f50634_1000
 bz2file=0.98=py_0
 bzip2=1.0.8=h516909a_3
 c-ares=1.16.1=h516909a_3
-ca-certificates=2020.11.8=ha878542_0
+ca-certificates=2021.1.19=h06a4308_0
 cachetools=4.1.1=py_0
-certifi=2020.11.8=py37h89c1867_0
+catboost=0.24.4=py37h89c1867_0
+certifi=2020.12.5=py37h89c1867_1
 cffi=1.14.2=py37he30daa8_0
 chardet=3.0.4=py37hc8dfbb8_1007
 charls=2.1.0=he1b5a44_2
@@ -108,8 +110,9 @@ libcurl=7.71.1=hcdd3856_6
 libedit=3.1.20191231=h14c3975_1
 libev=4.33=h516909a_1
 libffi=3.3=he6710b0_2
-libgcc-ng=9.1.0=hdf63c60_0
+libgcc-ng=9.3.0=h2828fa1_18
 libgfortran-ng=7.5.0=hdf63c60_16
+libgomp=9.3.0=h2828fa1_18
 libiconv=1.16=h516909a_0
 liblapack=3.8.0=17_openblas
 libnghttp2=1.41.0=h8cfc5f6_2
@@ -152,7 +155,7 @@ notebook=6.1.4=py37hc8dfbb8_0
 numpy=1.18.0=pypi_0
 olefile=0.46=py_0
 openjpeg=2.3.1=h981e76c_3
-openssl=1.1.1h=h516909a_0
+openssl=1.1.1i=h7f98852_0
 overrides=2.7.0=pypi_0
 packaging=20.4=pyh9f0ad1d_0
 pamqp=2.3.0=pypi_0

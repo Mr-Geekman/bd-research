@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.svm import LinearSVC
 from src.models.BertScorer import BertScorerCorrection
 
+import catboost
+
 
 class BertScorer:
     """Wrapper class over BertScorerCorrection
@@ -122,5 +124,67 @@ class SVMScorer:
             data = pd.DataFrame(data_dict).astype(float)
             scoring_results.append(
                 self.svm_model.decision_function(data).tolist()
+            )
+        return scoring_results
+
+
+class CatBoostScorer:
+    """CatBoost model trained on candidate features features."""
+
+    def __init__(
+            self,
+            catboost_model: catboost.CatBoost,
+            bert_scorer: Optional[BertScorer] = None
+    ):
+        """Init object.
+
+        :param catboost_model: catboost model for scoring
+        :param bert_scorer: scorer based on Bert
+        """
+        self.catboost_model = catboost_model
+        self.bert_scorer = bert_scorer
+
+    def __call__(
+            self, tokenized_sentences: List[List[str]],
+            positions: List[int],
+            candidates_features: List[List[Tuple[str, Dict[str, Any]]]]
+    ) -> List[List[float]]:
+        """Make scoring for candidates for every sentence and adjust them.
+
+        :param tokenized_sentences: list of tokenized sentences
+        :param positions: positions for candidates scoring for each sentence
+        :param candidates_features: candidates and their features
+            for given positions in each sentence
+
+        :returns: results of scoring
+        """
+        # TODO: make abstract class with processing other scorers
+        candidates_features_new = copy(candidates_features)
+        # make scoring using Bert if possible
+        if self.bert_scorer:
+            # make scoring
+            bert_scoring_results = self.bert_scorer(
+                tokenized_sentences, positions, candidates_features
+            )
+            # add this features to candidates_features
+            for num_sent, candidates_sentence in enumerate(
+                    candidates_features_new
+            ):
+                for i, candidate in enumerate(candidates_sentence):
+                    candidate[1]['bert_score'] = bert_scoring_results[
+                        num_sent
+                    ][i]
+
+        # process each sentence separately
+        scoring_results = []
+        for num_sent, candidates_features_sentence in enumerate(
+                candidates_features_new
+        ):
+            # prepare data for scoring with CatBoost model
+            data_dict = [x[1] for x in candidates_features_sentence]
+            data_df = pd.DataFrame(data_dict).astype(float)
+            data_pool = catboost.Pool(data=data_df)
+            scoring_results.append(
+                self.catboost_model.predict(data_pool).tolist()
             )
         return scoring_results
