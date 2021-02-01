@@ -104,4 +104,4 @@ catboost_info/
 /src/kenlm/
 
 # Debug folder
-_debug
+_debug/

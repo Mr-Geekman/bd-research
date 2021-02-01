@@ -4,6 +4,7 @@ import getopt
 import re
 
 import numpy as np
+import scipy.stats as sps
 
 from collections import defaultdict, deque
 
@@ -337,16 +338,51 @@ def make_corrections_data(source_sents, correct_sents, answer_sents):
             answer_corrections[(num, i, j)] = tuple(answer[k:l])
     return etalon_corrections, answer_corrections
 
-def measure_quality(etalon_corrections, answer_corrections):
-    TP = 0
+def measure_quality(etalon_corrections, answer_corrections,
+                    alpha=0.95, size_bootstrap=int(1e5)):
+    is_correct = []
     for triple, answer_correction in answer_corrections.items():
         etalon_correction = etalon_corrections.get(triple)
-        if etalon_correction == answer_correction:
-            TP += 1
+        is_correct.append(etalon_correction == answer_correction)
+    is_correct = np.array(is_correct)
+    TP = np.sum(is_correct)
     precision = TP / len(answer_corrections)
     recall = TP / len(etalon_corrections)
     f_measure = 2 * precision * recall / (precision + recall)
-    return TP, precision, recall, f_measure
+
+    # find confidence intervals
+    bootstrap_indices = sps.randint(
+        low=0, high=len(is_correct)
+    ).rvs((size_bootstrap, len(is_correct)))
+    bootstrap_samples = np.array(
+        [is_correct[indices] for indices in bootstrap_indices]
+    )
+    TP_bootstrap = np.sum(bootstrap_samples, axis=1)
+    precision_bootstrap = TP_bootstrap / len(answer_corrections)
+    recall_bootstrap = TP_bootstrap / len(etalon_corrections)
+    f_measure_bootstrap = (2 * precision_bootstrap * recall_bootstrap
+                           / (precision_bootstrap + recall_bootstrap))
+
+    precision_std = np.std(precision_bootstrap)
+    recall_std = np.std(recall_bootstrap)
+    f_measure_std = np.std(f_measure_bootstrap)
+    precision_interval = (
+        precision - sps.norm.ppf((1+alpha)/2) * precision_std,
+        precision + sps.norm.ppf((1+alpha)/2) * precision_std,
+    )
+    recall_interval = (
+        recall - sps.norm.ppf((1+alpha)/2) * recall_std,
+        recall + sps.norm.ppf((1+alpha)/2) * recall_std,
+    )
+    f_measure_interval = (
+        f_measure - sps.norm.ppf((1+alpha)/2) * f_measure_std,
+        f_measure + sps.norm.ppf((1+alpha)/2) * f_measure_std,
+    )
+    precision_info = (precision, precision_interval)
+    recall_info = (recall, recall_interval)
+    f_measure_info = (f_measure, f_measure_interval)
+
+    return TP, precision_info, recall_info, f_measure_info
 
 
 def output_differences(diff_file, source_sents, correct_sents, answer_sents,
@@ -427,14 +463,20 @@ if __name__ == "__main__":
                         for line in fans.readlines() if line.strip().strip('\ufeff') != ""]
     etalon_corrections, answer_corrections =\
         make_corrections_data(source_sents, correct_sents, answer_sents)
-    TP, precision, recall, f_measure = measure_quality(etalon_corrections, answer_corrections)
-    print("Precision={0:.2f} Recall={1:.2f} FMeasure={2:.2f}".format(
-        100 * precision, 100 * recall, 100 * f_measure))
+    np.random.seed(42)
+    TP, precision_info, recall_info, f_measure_info = measure_quality(
+        etalon_corrections, answer_corrections
+    )
+    print(f"Precision={precision_info[0]*100:.2f}, "
+          f"Interval=({precision_info[1][0]*100:.2f}, "
+          f"{precision_info[1][1]*100:.2f})")
+    print(f"Recall={recall_info[0]*100:.2f}, "
+          f"Interval=({recall_info[1][0]*100:.2f}, "
+          f"{recall_info[1][1]*100:.2f})")
+    print(f"FMeasure={f_measure_info[0]*100:.2f}, "
+          f"Interval=({f_measure_info[1][0]*100:.2f}, "
+          f"{f_measure_info[1][1]*100:.2f})")
     print(TP, len(answer_corrections), len(etalon_corrections))
     if to_output_differences:
         output_differences(diff_file, source_sents, correct_sents, answer_sents,
                            etalon_corrections, answer_corrections)
-
-
-
-
