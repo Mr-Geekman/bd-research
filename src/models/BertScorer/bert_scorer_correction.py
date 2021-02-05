@@ -1,6 +1,5 @@
-from typing import List, Tuple, Any, Dict, Callable
+from typing import List, Tuple, Any, Dict
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from transformers.tokenization_utils import PreTrainedTokenizer, BatchEncoding
@@ -29,18 +28,17 @@ class BertScorerCorrection:
         self.batch_size = batch_size
         self.tokenizer = tokenizer
 
-    def __call__(self, sentences: List[str], candidates: List[List[str]],
-                 agg_func: Callable = np.mean) -> List[List[Any]]:
+    def __call__(
+            self, sentences: List[str], candidates: List[List[str]]
+    ) -> List[List[List[float]]]:
         """Make scoring for candidates for every sentence.
 
         :param sentences: list of sentences with mask token,
             indicates, where we should place candidates
         :param candidates: list of lists of candidates to score
             for each sentence
-        :param agg_func: function, that aggregates scores
-            for multi-token candidate
 
-        :returns: score for each candidate for each sentence
+        :returns: scoring results for each candidate for each sentence
         """
         tokenized_sentences = self.tokenizer(
             sentences,
@@ -124,12 +122,7 @@ class BertScorerCorrection:
             self._update_results(score_results, results_update,
                                  indices_to_process)
 
-        # apply agg function to each candidate consists of many tokens
-        aggregated_results = [
-            [agg_func(x) for x in sentence_results]
-            for sentence_results in score_results
-        ]
-        return aggregated_results
+        return score_results
 
     def _group_candidates(self, candidates: List[List[str]]) -> List[Dict]:
         """Create list of grouped candidates to batch.

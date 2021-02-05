@@ -31,10 +31,8 @@ class IterativeSpellChecker:
             candidate_generator: Callable,
             position_selector: Callable,
             candidate_scorer: Callable,
-            stopping_criteria: Callable,
             tokenizer: Callable,
             detokenizer: Callable,
-            num_selected_candidates: Optional[int] = None,
             max_it: int = 5,
             ignore_titles: bool = True,
             make_blacklisting: bool = True
@@ -45,11 +43,8 @@ class IterativeSpellChecker:
         :param candidate_generator: model for candidate generation
         :param position_selector: model for selection position of correction
         :param candidate_scorer: model for scoring candidates in position
-        :param stopping_criteria: stopping criteria
         :param tokenizer: tokenizer for input sentences
         :param detokenizer: detokenizer for output sentences
-        :param num_selected_candidates: maximum number of candidates
-            selected for position by position selector or no restriction
         :param max_it: maximum number of iterations
         :param ignore_titles: ignore titled words in correction
         :param make_blacklisting: use or not to use black lists
@@ -58,10 +53,8 @@ class IterativeSpellChecker:
         self.candidate_generator = candidate_generator
         self.position_selector = position_selector
         self.candidate_scorer = candidate_scorer
-        self.stopping_criteria = stopping_criteria
         self.tokenizer = tokenizer
         self.detokenizer = detokenizer
-        self.num_selected_candidates = num_selected_candidates
         self.max_it = max_it
         self.make_blacklisting = make_blacklisting
         self.ignore_titles = ignore_titles
@@ -74,7 +67,7 @@ class IterativeSpellChecker:
 
         :param sentences: list of sentences
         :param callback_candidate_scorer: some function
-            to call after running candidate scorer
+            to call after candidate scorer
 
         :returns: list of corrected sentences
         """
@@ -99,7 +92,6 @@ class IterativeSpellChecker:
         # indices of processed sentences
         indices_processing_sentences = list(range(len(tokenized_sentences)))
 
-        # TODO: make option not to do it
         # creating black lists
         # initial black list of positions
         if self.ignore_titles:
@@ -116,37 +108,13 @@ class IterativeSpellChecker:
 
         # start iteration procedure
         for cur_it in range(self.max_it):
-
-            # find indices of current tokens in lists of candidates
-            # TODO: to avoid this
-            current_tokens_candidates_indices_all_positions = []
-            for i in range(len(tokenized_sentences)):
-                sentence_current_tokens_candidates_indices = []
-                for j in range(len(tokenized_sentences[i])):
-                    current_token = tokenized_sentences[i][j]
-                    current_candidates = [x[0] for x in candidates[i][j]]
-                    sentence_current_tokens_candidates_indices.append(
-                        current_candidates.index(current_token)
-                    )
-                current_tokens_candidates_indices_all_positions.append(
-                    sentence_current_tokens_candidates_indices
-                )
-
             # find the best positions for corrections
-            position_selector_results = self.position_selector(
+            best_positions, criteria_results = self.position_selector(
                 tokenized_sentences, candidates,
-                current_tokens_candidates_indices_all_positions,
-                self.num_selected_candidates, positions_black_lists
+                positions_black_lists
             )
-            best_positions = position_selector_results[0]
-            positions_scores = position_selector_results[1]
-            positions_candidates = position_selector_results[2]
 
-            # check stopping criteria for position selector
-            # and finish some sentences
-            criteria_results = self.stopping_criteria(
-                positions_scores[0], positions_scores[1]
-            )
+            # finish some sentences
             self._finish_sentences(
                 criteria_results, tokenized_sentences,
                 indices_processing_sentences, corrected_sentences
@@ -160,35 +128,43 @@ class IterativeSpellChecker:
                                                     positions_black_lists)
             candidates = bool_anti_index(criteria_results, candidates)
             best_positions = bool_anti_index(criteria_results, best_positions)
-            positions_candidates = bool_anti_index(criteria_results,
-                                                   positions_candidates)
             # if all sentences was processed before reaching max_it
             if len(tokenized_sentences) == 0:
                 break
 
-            # make scoring of candidates
+            # make scoring of candidates and get scoring info if necessary
             candidate_scorer_results = self.candidate_scorer(
-                tokenized_sentences, best_positions,
-                positions_candidates
+                tokenized_sentences, best_positions, candidates,
+                return_scoring_info=(callback_candidate_scorer is not None)
             )
             best_candidates_indices = candidate_scorer_results[0]
-            candidate_scores = candidate_scorer_results[1]
-            scoring_results = candidate_scorer_results[2]
+            scoring_results = candidate_scorer_results[1]
+            scoring_info = candidate_scorer_results[2]
 
             # make callback if needed
             if callback_candidate_scorer:
                 callback_candidate_scorer(
                     tokenized_sentences, indices_processing_sentences,
-                    best_positions, positions_candidates,
-                    scoring_results
+                    candidates, best_positions,
+                    scoring_results, scoring_info
                 )
 
             # make best corrections
             for i in range(len(tokenized_sentences)):
-                candidate = positions_candidates[i][
-                    best_candidates_indices[i]
-                ][0]
-                tokenized_sentences[i][best_positions[i]] = candidate
+                best_index = best_candidates_indices[i]
+                candidate_list = candidates[i][
+                    best_positions[i]
+                ]
+                best_candidate = candidate_list[best_index]['token']
+                tokenized_sentences[i][best_positions[i]] = best_candidate
+
+                # make swap of candidates to make current token have index 0
+                candidate_list[0]['is_current'] = False
+                candidate_list[best_index]['is_current'] = True
+                candidate_list[best_index], candidate_list[0] = (
+                    candidate_list[0],
+                    candidate_list[best_index]
+                )
 
             # update black lists of positions
             if self.make_blacklisting:

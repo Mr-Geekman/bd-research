@@ -12,7 +12,7 @@ class LevenshteinSearcher:
     on Damerau-Levenshtein distance.
     """
 
-    def __init__(self, words: List[str], max_distance: int = 1):
+    def __init__(self, words: Iterable[str], max_distance: int = 1):
         """Init object.
 
         :param words: possible words of candidates
@@ -106,17 +106,17 @@ class PhoneticSeacher:
         17: ['ц']
     }
 
-    def __init__(self, words: List[str]):
+    def __init__(self, words: Iterable[str]):
         """Init object.
 
         :param words: possible words to handle
         """
         # normalize words
-        words = list({
+        words = {
             re.sub(f'[{punctuation}]', '',
                    word.strip().lower().replace('ё', 'е'))
             for word in words if ' ' not in word
-        })
+        }
 
         # create mapping table
         self.table = {}
@@ -225,9 +225,9 @@ class CandidateGenerator:
         :param max_distance: max distance for LevenshteinSearcherComponent
         :param handcode_table: table of handcoded candidates
         """
-        self.words = list(
-            {word.strip().lower().replace('ё', 'е') for word in words}
-        )
+        self.words = {
+            word.strip().lower().replace('ё', 'е') for word in words
+        }
         self.max_distance = max_distance
         self.handcode_table = handcode_table
         # create levenstein searcher
@@ -241,7 +241,7 @@ class CandidateGenerator:
 
     def __call__(
             self, tokenized_sentences_cased: List[List[str]]
-    ) -> List[List[List[Tuple[str, Dict[str, Any]]]]]:
+    ) -> List[List[List[Dict[str, Any]]]]:
         """Create candidates and their features
         for each position in each sentence.
 
@@ -272,7 +272,7 @@ class CandidateGenerator:
         candidates_handcode = self.handcode_searcher(tokenized_sentences)
 
         # collect all candidates and their features
-        candidates: List[List[List[Tuple[str, Dict[str, Any]]]]] = []
+        candidates: List[List[List[Dict[str, Any]]]] = []
         for i in range(len(tokenized_sentences)):
             candidates_sentence: List[List[Tuple[str, Dict[str, Any]]]] = []
             for j in range(len(tokenized_sentences[i])):
@@ -288,7 +288,8 @@ class CandidateGenerator:
                 # only initial token can be non-vocabulary word
                 candidates_position[candidate].update({
                     'from_vocabulary': candidate in self.words,
-                    'is_original': True
+                    'is_original': True,
+                    'is_current': True
                 })
 
                 # add candidates from levenshtein searcher
@@ -314,11 +315,9 @@ class CandidateGenerator:
                 )
 
                 candidates_sentence.append(
-                    list(candidates_position.items())
+                    list(candidates_position.values())
                 )
-            candidates.append(
-                candidates_sentence
-            )
+            candidates.append(candidates_sentence)
 
         return candidates
 
@@ -332,8 +331,10 @@ class CandidateGenerator:
 
         :returns: dictionary with features
         """
-        # add positional features
         features = {}
+        # add candidate itself
+        features['token'] = token
+        # add positional features
         features.update(positional_features)
         # add feature about space/hyphen
         features['contains_space'] = (' ' in token)
@@ -343,6 +344,7 @@ class CandidateGenerator:
         features['from_phonetic_searcher'] = False
         features['from_handcode_searcher'] = False
         features['is_original'] = False
+        features['is_current'] = False
         features['from_vocabulary'] = True
         return features
 
