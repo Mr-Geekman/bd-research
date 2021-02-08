@@ -101,6 +101,10 @@ class BertScorer:
         return scoring_results, scoring_info
 
 
+# TODO: refactor this
+#   it may be better to create class MLScorer
+#   and pass some predict function inside
+#   now there is a lot of duplicate code
 class SVMScorer:
     """SVM model trained on candidate features features."""
 

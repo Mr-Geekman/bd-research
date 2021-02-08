@@ -223,7 +223,7 @@ class BertScorerCorrection:
         """
         # find mask indexes
         mask_indexes = [
-            (x == self.tokenizer.mask_token_id).nonzero().item()
+            torch.nonzero(x == self.tokenizer.mask_token_id).item()
             for x in batch['input_ids']
         ]
 
