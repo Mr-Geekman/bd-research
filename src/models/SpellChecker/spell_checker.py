@@ -184,7 +184,7 @@ class IterativeSpellChecker:
             corrected_sentences[idx] = tokenized_sentences[i]
 
         # remove punctuation from sentences
-        corrected_sentences = [
+        postprocessed_sentences = [
             [x for x in sentence
              if not re.fullmatch('[' + punctuation + ']+', x)]
             for sentence in corrected_sentences
@@ -192,7 +192,7 @@ class IterativeSpellChecker:
 
         # return current detokenized sentences
         return [
-            self.detokenizer(sentence) for sentence in corrected_sentences
+            self.detokenizer(sentence) for sentence in postprocessed_sentences
         ]
 
     def _finish_sentences(
