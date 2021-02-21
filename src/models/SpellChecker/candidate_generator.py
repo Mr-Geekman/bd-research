@@ -46,7 +46,7 @@ class LevenshteinSearcher:
 class HandcodeSearcher:
     """Class for manually adding candidates."""
 
-    def __init__(self, table: Dict[str, str]):
+    def __init__(self, table: Dict[str, List[str]]):
         """Init object.
 
         :param table: table of handcoded candidates
@@ -65,7 +65,7 @@ class HandcodeSearcher:
         # make query in table
         answer = self.table.get(token)
         if answer:
-            return [answer]
+            return answer
         else:
             return []
 
@@ -137,7 +137,7 @@ class PhoneticSeacher:
 
         :param word: word to encode
 
-        :return: phonetic code.
+        :returns: phonetic code.
         """
         # make substitution for "тс", "тьс", "тъс"
         word = word.replace('тс', 'ц').replace('тьс', 'ц').replace('тъс', 'ц')
@@ -293,21 +293,21 @@ class CandidateGenerator:
                 })
 
                 # add candidates from levenshtein searcher
-                self._add_candidates_from_searcher(
+                self._add_candidates_from_list(
                     candidates_position,
                     candidates_levenshtein[i][j],
                     positional_features[i][j],
                     {'from_levenshtein_searcher': True}
                 )
                 # add candidates from phonetic searcher
-                self._add_candidates_from_searcher(
+                self._add_candidates_from_list(
                     candidates_position,
                     candidates_phonetic[i][j],
                     positional_features[i][j],
                     {'from_phonetic_searcher': True}
                 )
                 # add candidates from handcode searcher
-                self._add_candidates_from_searcher(
+                self._add_candidates_from_list(
                     candidates_position,
                     candidates_handcode[i][j],
                     positional_features[i][j],
@@ -343,17 +343,25 @@ class CandidateGenerator:
         features['from_levenshtein_searcher'] = False
         features['from_phonetic_searcher'] = False
         features['from_handcode_searcher'] = False
+        features['is_combined'] = False
         features['is_original'] = False
         features['is_current'] = False
         features['from_vocabulary'] = True
         return features
 
-    def _add_candidates_from_searcher(
+    def _add_candidates_from_list(
             self, candidates_with_features: Dict[str, Dict[str, Any]],
             candidates_raw: List[str],
             positional_features: Dict[str, Any],
             update_dict: Dict[str, Any]
     ) -> None:
+        """Add candidates with features from list of candidate tokens.
+
+        :param candidates_with_features:  list of candidates with features
+        :param candidates_raw: list of candidates tokens to add
+        :param positional_features: information about position
+        :param update_dict: additional features to add
+        """
         for candidate in candidates_raw:
             if candidate not in candidates_with_features:
                 candidates_with_features[candidate] = (
@@ -362,3 +370,150 @@ class CandidateGenerator:
                     )
                 )
             candidates_with_features[candidate].update(update_dict)
+
+    def combine_tokens(
+            self, candidates: List[List[List[Dict[str, Any]]]]
+    ) -> Tuple[List[List[List[Dict[str, Any]]]], List[List[int]]]:
+        """Combine some consecutive tokens in one token
+        to process more subtle cases.
+
+        :param candidates: list of candidates and their features
+
+        :returns:
+            candidates after combination some tokens
+            indices for combination tokens
+        """
+
+        candidates_combined = []
+        indices_combined = []
+        # process each sentence separately
+        for num_sent, candidates_sentence in enumerate(candidates):
+            # for combination we need at least len == 1
+            if len(candidates_sentence) == 0:
+                candidates_combined.append([])
+                indices_combined.append([])
+                continue
+
+            # prepare arrays for combination
+            indices_sentence_combined = [[0]]
+            candidates_sentence_combined = [candidates_sentence[0]]
+
+            # check all consecutive pair of tokens using already combined
+            for i in range(len(candidates_sentence) - 1):
+                # take first token as token of last combined group
+                token_first = candidates_sentence_combined[-1][0]['token']
+                # take second token as new token to combine
+                token_second = candidates_sentence[i+1][0]['token']
+                # try to remove space or replace it with hyphen
+                combined_token = f'{token_first} {token_second}'
+                candidates_combination = []
+                space_token = f'{token_first}{token_second}'
+                hyphen_token = f'{token_first}-{token_second}'
+
+                # check that one of token is not punctuation
+                if not (
+                        re.fullmatch('[' + punctuation + ']+', token_first)
+                        or re.fullmatch('[' + punctuation + ']+', token_second)
+                ):
+                    if space_token in self.words:
+                        candidates_combination.append(space_token)
+                    if hyphen_token in self.words:
+                        candidates_combination.append(hyphen_token)
+
+                # make combination
+                if len(candidates_combination) > 0:
+                    # make dict not to duplicate candidates
+                    candidates_position: Dict[str, Dict[str, Any]] = {}
+
+                    candidates_first = candidates_sentence_combined[-1]
+                    candidates_second = candidates_sentence[i+1]
+                    # new list of candidates consists of
+                    # 1. original combined token
+                    # 2. candidates for combined token
+                    # 3. original first token + candidates for second token
+                    # 4. candidates for first token + original second token
+
+                    # 1. original combined token
+                    original_candidate = combined_token
+                    candidates_position[original_candidate] = {}
+                    # calculate positional features according to some logic
+                    positional_features = {}
+                    positional_features['is_first'] = (
+                        candidates_first[0]['is_first']
+                    )
+                    positional_features['is_lower'] = (
+                        candidates_first[0]['is_lower']
+                        and candidates_second[0]['is_lower']
+                    )
+                    positional_features['is_upper'] = (
+                        candidates_first[0]['is_upper']
+                        and candidates_second[0]['is_upper']
+                    )
+                    positional_features['is_title'] = (
+                        candidates_first[0]['is_title']
+                    )
+                    candidates_position[original_candidate].update(
+                        self._calculate_features(
+                            combined_token, positional_features
+                        )
+                    )
+                    candidates_position[original_candidate].update({
+                        'from_vocabulary': all(
+                            [token in self.words for token in combined_token]
+                        ),
+                        'is_original': True,
+                        'is_current': True
+                    })
+
+                    # 2. candidates for combined token
+                    # take positional features from first position
+                    for token in candidates_combination:
+                        candidates_position[token] = self._calculate_features(
+                            token, positional_features
+                        )
+                        candidates_position[token]['is_combined'] = True
+
+                    # 3. original first token + candidates for second token
+                    for candidate_second in candidates_second[1:]:
+                        candidate_first = candidates_first[0]
+                        token_first = candidate_first['token']
+                        token_second = candidate_second['token']
+                        token = f"{token_first} {token_second}"
+                        if token not in candidates_position:
+                            candidates_position[token] = {}
+                        candidates_position[token] = candidate_second
+                        candidates_position[token].update(positional_features)
+                        candidates_position[token]['token'] = token
+
+                    # 4. candidates for first token + original second token
+                    for candidate_first in candidates_first[1:]:
+                        candidate_second = candidates_second[0]
+                        token_first = candidate_first['token']
+                        token_second = candidate_second['token']
+                        token = f"{token_first} {token_second}"
+                        if token not in candidates_position:
+                            candidates_position[token] = {}
+                        candidates_position[token] = candidate_first
+                        candidates_position[token].update(positional_features)
+                        candidates_position[token]['token'] = token
+
+                    # add index for current group of combination
+                    indices_sentence_combined[-1].append(i+1)
+                    # update current combination group
+                    candidates_sentence_combined[-1] = list(
+                        candidates_position.values()
+                    )
+
+                # finish group of combination
+                else:
+                    # finish current group of combination
+                    indices_sentence_combined.append([i+1])
+                    # make new group of combination
+                    candidates_sentence_combined.append(
+                        candidates_sentence[i + 1]
+                    )
+
+            candidates_combined.append(candidates_sentence_combined)
+            indices_combined.append(indices_sentence_combined)
+
+        return candidates_combined, indices_combined

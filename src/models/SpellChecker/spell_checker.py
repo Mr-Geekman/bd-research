@@ -35,8 +35,8 @@ class IterativeSpellChecker:
             detokenizer: Callable,
             max_it: int = 5,
             ignore_titles: bool = True,
-            make_blacklisting: bool = True
-
+            make_blacklisting: bool = True,
+            combine_tokens: bool = False
     ):
         """Init object
 
@@ -49,6 +49,7 @@ class IterativeSpellChecker:
         :param ignore_titles: ignore titled words in correction
         :param make_blacklisting: use or not to use black lists
             for positions in that we failed to make correction
+        :param combine_tokens: combine consecutive tokens into one or not
         """
         self.candidate_generator = candidate_generator
         self.position_selector = position_selector
@@ -58,6 +59,7 @@ class IterativeSpellChecker:
         self.max_it = max_it
         self.make_blacklisting = make_blacklisting
         self.ignore_titles = ignore_titles
+        self.combine_tokens = combine_tokens
 
     def __call__(
             self, sentences: List[str],
@@ -73,7 +75,11 @@ class IterativeSpellChecker:
         """
         # make tokenization and basic preprocessing
         tokenized_sentences_cased = [
-            self.tokenizer(sentence.replace('ё', 'е').replace('Ё', 'Е'))
+            self.tokenizer(
+                sentence.replace('ё', 'е').replace('Ё', 'Е').replace(
+                    '«', '"'
+                ).replace('»', '"')
+            )
             for sentence in sentences
         ]
         # make lowercase
@@ -86,6 +92,28 @@ class IterativeSpellChecker:
         candidates = self.candidate_generator(
             tokenized_sentences_cased
         )
+
+        # combine tokens if necessary
+        if self.combine_tokens:
+            results_combination = self.candidate_generator.combine_tokens(
+                candidates
+            )
+            candidates, indices_combined = results_combination
+
+            # combine tokens according to indices_combined
+            tokenized_sentences_new = []
+            for num_sent, tokenized_sentence in enumerate(tokenized_sentences):
+                tokenized_sentence_new = [
+                    ' '.join([tokenized_sentence[idx] for idx in list_idx])
+                    for list_idx in indices_combined[num_sent]
+                ]
+                tokenized_sentences_new.append(tokenized_sentence_new)
+            tokenized_sentences = tokenized_sentences_new
+        else:
+            indices_combined = [
+                [[idx] for idx in range(len(tokenized_sentence))]
+                for tokenized_sentence in tokenized_sentences
+            ]
 
         # list of results
         corrected_sentences = [[] for _ in range(len(tokenized_sentences))]
@@ -128,6 +156,8 @@ class IterativeSpellChecker:
                                                     positions_black_lists)
             candidates = bool_anti_index(criteria_results, candidates)
             best_positions = bool_anti_index(criteria_results, best_positions)
+            indices_combined = bool_anti_index(criteria_results,
+                                               indices_combined)
             # if all sentences was processed before reaching max_it
             if len(tokenized_sentences) == 0:
                 break
@@ -144,7 +174,8 @@ class IterativeSpellChecker:
             # make callback if needed
             if callback_candidate_scorer:
                 callback_candidate_scorer(
-                    tokenized_sentences, indices_processing_sentences,
+                    tokenized_sentences,
+                    indices_processing_sentences, indices_combined,
                     candidates, best_positions,
                     scoring_results, scoring_info
                 )

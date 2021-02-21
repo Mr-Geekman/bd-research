@@ -279,6 +279,7 @@ class KenlmMarginPositionSelector(KenlmBasePositionSelector):
         """
         best_position_score = 0
         best_position = None
+        position_scores = [] # for debug
         for pos, candidates_position in enumerate(candidates):
             # skip black list with positions (if possible)
             if pos not in positions_black_list:
@@ -286,6 +287,7 @@ class KenlmMarginPositionSelector(KenlmBasePositionSelector):
                     candidate['margin_kenlm_agg']
                     for candidate in candidates_position
                 ])
+                position_scores.append(position_score)
                 if position_score >= best_position_score:
                     best_position = pos
                     best_position_score = position_score
