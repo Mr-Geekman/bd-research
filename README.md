@@ -13,7 +13,8 @@
 | Yandex.Speller       | 83.09     | 59.86     | 69.59     |
 | SpellRuEval Baseline | 55.91     | 46.41     | 50.72     |
 | SpellRuEval Winner   | 81.98     | 69.25     | 75.07     |
-| Our solution         | **87.28** | **70.50** | **78.00** |
+| Our solution (best)  | **86.56** | **72.37** | **78.83** |
+| Our solution (fast)  | 85.30     | 70.80     | 77.38     |
 
 
 ## Разработка
