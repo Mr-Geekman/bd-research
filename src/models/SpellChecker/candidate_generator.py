@@ -115,7 +115,7 @@ class PhoneticSeacher:
         words = {
             re.sub(f'[{punctuation}]', '',
                    word.strip().lower().replace('ё', 'е'))
-            for word in words if ' ' not in word
+            for word in words if re.fullmatch(f'[{self.alphabet}-]+', word)
         }
 
         # create mapping table
