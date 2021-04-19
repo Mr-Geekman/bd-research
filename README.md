@@ -14,7 +14,7 @@
 | SpellRuEval Baseline | 55.91     | 46.41     | 50.72     |
 | SpellRuEval Winner   | 81.98     | 69.25     | 75.07     |
 | Our solution (best)  | **87.70** | **73.23** | **79.81** |
-| Our solution (fast)  | 86.04     | 70.80     | 77.68     |
+| Our solution (fast)  | 87.55     | 69.38     | 77.41     |
 
 
 ## Разработка
@@ -24,12 +24,16 @@
 conda create --name <env> --file requirements.txt
 ```
 
-Для создания директорий с данными и их загрузки:
+Для создания директорий с данными и их частичной загрузки:
 ```bash
 snakemake data --cores 1
 ```
 
-Так загрузятся на все данные. Остальные можно найти на [гугл-диске](https://drive.google.com/drive/folders/1iUR-SiMzbZkuHAAzJZLfiO9q7rIze2GI?usp=sharing).
+Все данные можно найти на [гугл-диске](https://drive.google.com/drive/folders/1iUR-SiMzbZkuHAAzJZLfiO9q7rIze2GI?usp=sharing).
+
+## Демонстрация
+
+Демонстрация работы модели есть в [ноутбуке](https://colab.research.google.com/drive/12DL7M491FX8C1YACRIuZoP-9OstghCA7?usp=sharing) на Google Colab.
 
 
 ## Языковые модели
