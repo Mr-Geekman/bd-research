@@ -14,7 +14,7 @@
 | SpellRuEval Baseline | 55.91     | 46.41     | 50.72     |
 | SpellRuEval Winner   | 81.98     | 69.25     | 75.07     |
 | Our solution (best)  | **87.70** | **73.23** | **79.81** |
-| Our solution (fast)  | 86.04     | 70.80     | 77.68     |
+| Our solution (fast)  | 87.55     | 69.38     | 77.41     |
 
 
 ## Разработка
